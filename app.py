@@ -10,16 +10,28 @@ import json
 import hashlib
 import base64
 import uuid
-from datetime import datetime
-from googletrans import Translator
-import speech_recognition as sr
-from pydub import AudioSegment
-import io
 import os
-import tempfile
+from datetime import datetime
+
+# Optional imports (comment if not available)
+try:
+    from googletrans import Translator
+    translator = Translator()
+    TRANSLATE_AVAILABLE = True
+except:
+    TRANSLATE_AVAILABLE = False
+    print("⚠️ Translation feature disabled. Install: pip install googletrans==4.0.0-rc1")
+
+try:
+    import speech_recognition as sr
+    from pydub import AudioSegment
+    import tempfile
+    VOICE_AVAILABLE = True
+except:
+    VOICE_AVAILABLE = False
+    print("⚠️ Voice feature disabled. Install: pip install SpeechRecognition pydub")
 
 app = Flask(__name__)
-translator = Translator()
 
 # =========================================================
 # DATABASE SETUP
@@ -68,13 +80,22 @@ CREATE TABLE IF NOT EXISTS users_sessions(
 )
 """)
 
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS secrets(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    secret TEXT,
+    name TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+
 conn.commit()
 
 # =========================================================
 # DEVICE FINGERPRINT & USER SESSION
 # =========================================================
 def generate_device_fingerprint(request):
-    """ডিভাইস ফিঙ্গারপ্রিন্ট তৈরি"""
     ip = request.remote_addr
     user_agent = request.headers.get('User-Agent', '')
     accept_lang = request.headers.get('Accept-Language', '')
@@ -82,7 +103,6 @@ def generate_device_fingerprint(request):
     return hashlib.md5(fp_string.encode()).hexdigest()[:16]
 
 def get_or_create_user_id(request):
-    """ইউজার আইডি পাওয়া বা তৈরি"""
     fingerprint = generate_device_fingerprint(request)
     cursor.execute("SELECT user_id FROM users_sessions WHERE device_fingerprint=?", (fingerprint,))
     row = cursor.fetchone()
@@ -110,7 +130,7 @@ def get_domain():
 
 def create_temp_mail():
     domain = get_domain()
-    username = "thispersonisbrand" + str(random.randint(100000000, 999999999))
+    username = "user" + str(random.randint(100000000, 999999999))
     email = f"{username}@{domain}"
     password = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
     
@@ -130,6 +150,21 @@ def create_temp_mail():
         return email, password, token
     except:
         return None, None, None
+
+def login_existing_mail(email, password):
+    try:
+        payload = {"address": email, "password": password}
+        r = requests.post("https://api.mail.tm/token", json=payload, timeout=10)
+        if r.status_code == 200:
+            token = r.json()["token"]
+            # Save to database
+            cursor.execute("INSERT INTO temp_mails(email, password, token) VALUES(?,?,?)",
+                          (email, password, token))
+            conn.commit()
+            return token
+    except:
+        pass
+    return None
 
 def get_inbox(token):
     try:
@@ -182,16 +217,14 @@ def check_bin(bin_num):
     return None
 
 # =========================================================
-# SHORTLINK MANAGEMENT (Enhanced)
+# SHORTLINK MANAGEMENT
 # =========================================================
 def generate_short_code(url, user_id):
-    """ইউজার ভিত্তিক শর্ট কোড তৈরি"""
     hash_obj = hashlib.md5(f"{url}_{user_id}".encode())
     code = base64.b64encode(hash_obj.digest())[:6].decode().replace('/', '_').replace('+', '-')
     return code
 
 def create_or_update_short_link(url, user_id):
-    """শর্টলিংক তৈরি বা আপডেট"""
     short_code = generate_short_code(url, user_id)
     try:
         cursor.execute("""
@@ -210,7 +243,6 @@ def create_or_update_short_link(url, user_id):
         return short_code, "updated"
 
 def get_user_shortlinks(user_id):
-    """ইউজারের সব শর্টলিংক পাওয়া"""
     cursor.execute("""
         SELECT short_code, original_url, clicks, created_at, updated_at 
         FROM short_links 
@@ -227,7 +259,6 @@ def get_user_shortlinks(user_id):
     } for r in rows]
 
 def update_short_link(short_code, new_url, user_id):
-    """শর্টলিংক এডিট"""
     cursor.execute("""
         UPDATE short_links 
         SET original_url=?, updated_at=CURRENT_TIMESTAMP 
@@ -237,14 +268,12 @@ def update_short_link(short_code, new_url, user_id):
     return cursor.rowcount > 0
 
 def delete_short_link(short_code, user_id):
-    """শর্টলিংক ডিলিট"""
     cursor.execute("DELETE FROM short_links WHERE short_code=? AND user_id=?", 
                   (short_code, user_id))
     conn.commit()
     return cursor.rowcount > 0
 
 def get_original_url(short_code):
-    """ওরিজিনাল ইউআরএল পাওয়া"""
     cursor.execute("UPDATE short_links SET clicks = clicks + 1 WHERE short_code=?", (short_code,))
     conn.commit()
     cursor.execute("SELECT original_url FROM short_links WHERE short_code=?", (short_code,))
@@ -360,6 +389,8 @@ def get_word_meaning(word):
 # TRANSLATION FUNCTIONS
 # =========================================================
 def translate_text(text, target_lang='bn'):
+    if not TRANSLATE_AVAILABLE:
+        return {"success": False, "error": "Translation not available"}
     try:
         translated = translator.translate(text, dest=target_lang)
         return {
@@ -373,6 +404,8 @@ def translate_text(text, target_lang='bn'):
         return {"success": False, "error": "Translation failed"}
 
 def detect_language(text):
+    if not TRANSLATE_AVAILABLE:
+        return 'en'
     try:
         detection = translator.detect(text)
         return detection.lang
@@ -383,12 +416,13 @@ def detect_language(text):
 # VOICE TO TEXT
 # =========================================================
 def voice_to_text(audio_data):
+    if not VOICE_AVAILABLE:
+        return None
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp:
             tmp.write(audio_data)
             tmp_path = tmp.name
         
-        # Convert webm to wav
         audio = AudioSegment.from_file(tmp_path, format="webm")
         wav_path = tmp_path + '.wav'
         audio.export(wav_path, format="wav")
@@ -404,7 +438,7 @@ def voice_to_text(audio_data):
         os.unlink(tmp_path)
         os.unlink(wav_path)
         return text
-    except Exception as e:
+    except:
         return None
 
 # =========================================================
@@ -421,6 +455,20 @@ def api_create_mail():
     if email:
         return jsonify({"success": True, "email": email, "password": password, "token": token})
     return jsonify({"success": False, "error": "Failed to create mail"})
+
+@app.route('/api/login_mail', methods=['POST'])
+def api_login_mail():
+    data = request.json
+    email = data.get('email', '')
+    password = data.get('password', '')
+    
+    if not email or not password:
+        return jsonify({"success": False, "error": "Email and password required"})
+    
+    token = login_existing_mail(email, password)
+    if token:
+        return jsonify({"success": True, "email": email, "password": password, "token": token})
+    return jsonify({"success": False, "error": "Invalid credentials"})
 
 @app.route('/api/check_inbox', methods=['POST'])
 def api_check_inbox():
@@ -465,6 +513,36 @@ def api_generate_2fa():
         return jsonify({"success": True, "code": code, "expires": remain, "secret": secret})
     except:
         return jsonify({"success": False, "error": "Invalid secret key"})
+
+@app.route('/api/save_2fa_secret', methods=['POST'])
+def api_save_2fa_secret():
+    data = request.json
+    secret = data.get('secret', '').strip()
+    name = data.get('name', 'Unnamed')
+    user_id = get_or_create_user_id(request)
+    
+    # Remove spaces from secret
+    secret = re.sub(r'\s+', '', secret).upper()
+    
+    cursor.execute("INSERT INTO secrets(user_id, secret, name) VALUES(?,?,?)", (user_id, secret, name))
+    conn.commit()
+    return jsonify({"success": True})
+
+@app.route('/api/get_2fa_secrets', methods=['GET'])
+def api_get_2fa_secrets():
+    user_id = get_or_create_user_id(request)
+    cursor.execute("SELECT secret, name FROM secrets WHERE user_id=? ORDER BY id DESC", (user_id,))
+    secrets = cursor.fetchall()
+    return jsonify({"success": True, "secrets": [{"secret": s[0], "name": s[1]} for s in secrets]})
+
+@app.route('/api/delete_2fa_secret', methods=['POST'])
+def api_delete_2fa_secret():
+    data = request.json
+    secret = data.get('secret', '')
+    user_id = get_or_create_user_id(request)
+    cursor.execute("DELETE FROM secrets WHERE user_id=? AND secret=?", (user_id, secret))
+    conn.commit()
+    return jsonify({"success": True})
 
 # ========== BIN CHECK ROUTES ==========
 @app.route('/api/check_bin', methods=['POST'])
@@ -631,13 +709,16 @@ def api_languages():
     languages = {
         "en": "English", "bn": "Bengali", "hi": "Hindi", "es": "Spanish",
         "fr": "French", "de": "German", "zh-cn": "Chinese", "ja": "Japanese",
-        "ko": "Korean", "ru": "Russian", "ar": "Arabic", "ur": "Urdu"
+        "ko": "Korean", "ru": "Russian", "ar": "Arabic"
     }
     return jsonify({"success": True, "languages": languages})
 
 # ========== VOICE TO TEXT ROUTE ==========
 @app.route('/api/voice_to_text', methods=['POST'])
 def api_voice_to_text():
+    if not VOICE_AVAILABLE:
+        return jsonify({"success": False, "error": "Voice feature not available"})
+    
     if 'audio' not in request.files:
         return jsonify({"success": False, "error": "No audio file provided"})
     
@@ -650,4 +731,5 @@ def api_voice_to_text():
     return jsonify({"success": False, "error": "Could not recognize speech"})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port, debug=False)

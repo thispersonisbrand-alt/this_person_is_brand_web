@@ -191,6 +191,15 @@
         .mail-box strong { color: #00d2ff; }
         .mail-box code { font-size: 16px; word-break: break-all; }
         
+        .click-count {
+            background: rgba(0,210,255,0.2);
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 12px;
+            color: #00d2ff;
+        }
+        
         @media (max-width: 768px) {
             .grid { grid-template-columns: 1fr; }
             .logo { font-size: 1.3rem; }
@@ -436,7 +445,7 @@
         </div>
         
         <div class="footer">
-            ⚡ All Features Active | Auto Save on Device | Mail List with Delete | Shortlink Click Count
+            ⚡ All Features Active | Auto Save on Device | Shortlink Edit & Click Count Working | BIN History Saved
         </div>
     </div>
     
@@ -448,7 +457,8 @@
             MAIL_PASSWORD: 'brand_mail_password',
             TWOFA_SECRETS: 'brand_2fa_secrets',
             SHORTLINKS: 'brand_shortlinks',
-            ALL_MAILS: 'brand_all_mails'
+            ALL_MAILS: 'brand_all_mails',
+            BIN_HISTORY: 'brand_bin_history'
         };
         
         // ========== GLOBAL VARIABLES ==========
@@ -490,7 +500,6 @@
             currentEmail = email;
             currentPassword = password;
             
-            // Save to all mails list
             let allMails = JSON.parse(localStorage.getItem(STORAGE_KEYS.ALL_MAILS) || '[]');
             const existing = allMails.find(m => m.email === email);
             if (!existing) {
@@ -508,7 +517,6 @@
             allMails = allMails.filter(m => m.email !== email);
             localStorage.setItem(STORAGE_KEYS.ALL_MAILS, JSON.stringify(allMails));
             
-            // If current mail is deleted, clear current
             if (currentEmail === email) {
                 localStorage.removeItem(STORAGE_KEYS.MAIL_EMAIL);
                 localStorage.removeItem(STORAGE_KEYS.MAIL_PASSWORD);
@@ -556,7 +564,6 @@
             saveMailToLocalStorage(email, password, token);
             showToast('✅ Now using: ' + email);
             showMailList();
-            // Update display
             const div = document.getElementById('mailResult');
             div.innerHTML = `
                 <div class="success">✅ NOW USING THIS MAIL</div>
@@ -596,7 +603,7 @@
                             <code style="font-size:16px;">${data.password}</code><br>
                             <button class="copy-btn" onclick="copyToClipboard('${data.password}')" style="margin-top:8px;">📋 COPY PASSWORD</button>
                         </div>
-                        <div class="success">📥 Auto OTP Active | Reload/Close - Data Safe!</div>
+                        <div class="success">📥 Auto OTP Active</div>
                     `;
                 } else {
                     div.innerHTML = `<div class="error">❌ ${data.error}</div>`;
@@ -640,7 +647,7 @@
                             <code style="font-size:16px;">${data.password}</code><br>
                             <button class="copy-btn" onclick="copyToClipboard('${data.password}')" style="margin-top:8px;">📋 COPY PASSWORD</button>
                         </div>
-                        <div class="success">📥 Auto OTP Active | Reload/Close - Data Safe!</div>
+                        <div class="success">📥 Auto OTP Active</div>
                     `;
                     
                     document.getElementById('loginEmail').value = '';
@@ -793,7 +800,7 @@
             } catch(e) {}
         }
         
-        // ========== SHORTLINK FUNCTIONS ==========
+        // ========== SHORTLINK FUNCTIONS (FIXED EDIT & CLICK COUNT) ==========
         function loadMyLinks() {
             const div = document.getElementById('myLinks');
             let links = JSON.parse(localStorage.getItem(STORAGE_KEYS.SHORTLINKS) || '[]');
@@ -802,12 +809,12 @@
                 let html = '<strong>📂 YOUR SHORTLINKS</strong><br><br>';
                 links.forEach(link => {
                     const shortUrl = `https://${window.location.host}/s/${link.short_code}`;
-                    html += `<div class="mail-item">
+                    html += `<div class="mail-item" id="link-${link.short_code}">
                         🔗 <code>${link.short_code}</code><br>
-                        🔗 Original: <span style="font-size:12px; word-break:break-all;">${link.original_url.substring(0, 60)}${link.original_url.length > 60 ? '...' : ''}</span><br>
-                        👆 Clicks: ${link.clicks || 0}<br>
+                        🔗 Original: <span style="font-size:12px; word-break:break-all;" class="original-url-${link.short_code}">${link.original_url.substring(0, 80)}${link.original_url.length > 80 ? '...' : ''}</span><br>
+                        👆 Clicks: <span class="click-count" id="clicks-${link.short_code}">${link.clicks || 0}</span><br>
                         <button class="copy-btn" onclick="copyToClipboard('${shortUrl}')">📋 COPY</button>
-                        <button class="copy-btn" onclick="editLink('${link.short_code}', '${link.original_url.replace(/'/g, "\\'")}')">✏️ EDIT</button>
+                        <button class="copy-btn" onclick="editLink('${link.short_code}', \`${link.original_url.replace(/`/g, '\\`')}\`)">✏️ EDIT</button>
                         <button class="copy-btn" onclick="deleteLink('${link.short_code}')">🗑️ DELETE</button>
                     </div>`;
                 });
@@ -869,7 +876,7 @@
                     links[index].original_url = newUrl;
                     links[index].updated_at = new Date().toISOString();
                     localStorage.setItem(STORAGE_KEYS.SHORTLINKS, JSON.stringify(links));
-                    showToast('✅ Link updated!');
+                    showToast('✅ Link updated! New URL: ' + newUrl.substring(0, 50) + (newUrl.length > 50 ? '...' : ''));
                     loadMyLinks();
                 }
                 // Also update on server
@@ -897,7 +904,43 @@
             }
         }
         
-        // ========== BIN FUNCTIONS ==========
+        // Update click count from server (called when redirect happens)
+        async function updateClickCount(shortCode) {
+            let links = JSON.parse(localStorage.getItem(STORAGE_KEYS.SHORTLINKS) || '[]');
+            const index = links.findIndex(l => l.short_code === shortCode);
+            if (index !== -1) {
+                links[index].clicks = (links[index].clicks || 0) + 1;
+                localStorage.setItem(STORAGE_KEYS.SHORTLINKS, JSON.stringify(links));
+            }
+        }
+        
+        // ========== BIN FUNCTIONS (WITH HISTORY) ==========
+        function saveBinToHistory(bin, resultText) {
+            let history = JSON.parse(localStorage.getItem(STORAGE_KEYS.BIN_HISTORY) || '[]');
+            history.unshift({ bin: bin, result: resultText, date: new Date().toISOString() });
+            if (history.length > 20) history.pop();
+            localStorage.setItem(STORAGE_KEYS.BIN_HISTORY, JSON.stringify(history));
+        }
+        
+        function loadBinHistory() {
+            const div = document.getElementById('binHistory');
+            let history = JSON.parse(localStorage.getItem(STORAGE_KEYS.BIN_HISTORY) || '[]');
+            
+            if (history.length > 0) {
+                let html = '<strong>📜 BIN HISTORY (Auto Saved)</strong><br><br>';
+                history.forEach(h => {
+                    html += `<div class="mail-item">
+                        🔍 <code>${h.bin}</code><br>
+                        📅 ${new Date(h.date).toLocaleString()}<br>
+                        <button class="copy-btn" onclick="copyToClipboard('${h.result}')">📋 COPY RESULT</button>
+                    </div>`;
+                });
+                div.innerHTML = html;
+            } else {
+                div.innerHTML = '<div>No BIN history yet. Check some BINs first!</div>';
+            }
+        }
+        
         async function checkBIN() {
             const bin = document.getElementById('binNumber').value.trim();
             if (bin.length < 6) { 
@@ -924,31 +967,14 @@
                         📌 <strong>Type:</strong> ${data.type}<br>
                         💰 <strong>Prepaid:</strong> ${data.prepaid ? 'YES' : 'NO'}
                     `, resultText);
+                    
+                    // Save to history
+                    saveBinToHistory(bin, resultText);
                 } else { 
                     div.innerHTML = `<div class="error">❌ ${data.error}</div>`; 
                 }
             } catch(e) { 
                 div.innerHTML = '<div class="error">Error</div>'; 
-            }
-        }
-        
-        async function loadBinHistory() {
-            const div = document.getElementById('binHistory');
-            div.innerHTML = '<div class="loading">Loading...</div>';
-            try {
-                const res = await fetch('/api/bin_history');
-                const data = await res.json();
-                if (data.success && data.history.length > 0) {
-                    let html = '<strong>📜 BIN HISTORY</strong><br><br>';
-                    data.history.forEach(h => {
-                        html += `<div>🔍 <code>${h.bin}</code> - ${h.date}</div>`;
-                    });
-                    div.innerHTML = html;
-                } else { 
-                    div.innerHTML = '<div>No history</div>'; 
-                }
-            } catch(e) { 
-                div.innerHTML = '<div class="error">Failed</div>'; 
             }
         }
         
@@ -1219,7 +1245,7 @@
                         <code style="font-size:16px;">${currentPassword}</code><br>
                         <button class="copy-btn" onclick="copyToClipboard('${currentPassword}')" style="margin-top:8px;">📋 COPY PASSWORD</button>
                     </div>
-                    <div class="success">📥 Auto OTP Active | Data Auto Saved on this Device</div>
+                    <div class="success">📥 Auto OTP Active</div>
                 `;
             }
             
@@ -1229,6 +1255,9 @@
         }
         
         restoreSavedData();
+        
+        // Expose updateClickCount for redirect page
+        window.updateClickCount = updateClickCount;
     </script>
 </body>
 </html>

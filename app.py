@@ -130,7 +130,7 @@ def get_domain():
 
 def create_temp_mail():
     domain = get_domain()
-    username = "Thispersonisbrand" + str(random.randint(100000000, 999999999))
+    username = "thispersonisbrand" + str(random.randint(100000000, 999999999))
     email = f"{username}@{domain}"
     password = ''.join(random.choices(string.ascii_letters + string.digits, k=12))
     

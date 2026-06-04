@@ -194,10 +194,20 @@
         .click-count {
             background: rgba(0,210,255,0.2);
             display: inline-block;
-            padding: 2px 8px;
+            padding: 4px 12px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 14px;
+            font-weight: bold;
             color: #00d2ff;
+        }
+        
+        .refresh-count-btn {
+            background: #ff6600;
+            padding: 4px 10px;
+            font-size: 11px;
+            margin-top: 5px;
+            width: auto;
+            display: inline-block;
         }
         
         @media (max-width: 768px) {
@@ -445,7 +455,7 @@
         </div>
         
         <div class="footer">
-            ⚡ All Features Active | Auto Save on Device | Shortlink Edit & Click Count Working | BIN History Saved
+            ⚡ All Features Active | Shortlink Edit Works | Click Count with Refresh Button | Auto Save on Device
         </div>
     </div>
     
@@ -800,7 +810,39 @@
             } catch(e) {}
         }
         
-        // ========== SHORTLINK FUNCTIONS (FIXED EDIT & CLICK COUNT) ==========
+        // ========== SHORTLINK FUNCTIONS (FIXED EDIT & CLICK COUNT WITH REFRESH) ==========
+        async function getServerClickCount(shortCode) {
+            try {
+                const res = await fetch(`/api/get_click_count/${shortCode}`);
+                const data = await res.json();
+                if (data.success) {
+                    return data.clicks;
+                }
+            } catch(e) {
+                console.log('Error fetching click count');
+            }
+            return null;
+        }
+        
+        async function refreshClickCount(shortCode) {
+            showToast('🔄 Refreshing click count...');
+            const serverClicks = await getServerClickCount(shortCode);
+            if (serverClicks !== null) {
+                let links = JSON.parse(localStorage.getItem(STORAGE_KEYS.SHORTLINKS) || '[]');
+                const index = links.findIndex(l => l.short_code === shortCode);
+                if (index !== -1) {
+                    links[index].clicks = serverClicks;
+                    localStorage.setItem(STORAGE_KEYS.SHORTLINKS, JSON.stringify(links));
+                    showToast(`✅ Click count updated: ${serverClicks}`);
+                    loadMyLinks();
+                } else {
+                    showToast('❌ Link not found');
+                }
+            } else {
+                showToast('❌ Failed to fetch click count');
+            }
+        }
+        
         function loadMyLinks() {
             const div = document.getElementById('myLinks');
             let links = JSON.parse(localStorage.getItem(STORAGE_KEYS.SHORTLINKS) || '[]');
@@ -810,9 +852,11 @@
                 links.forEach(link => {
                     const shortUrl = `https://${window.location.host}/s/${link.short_code}`;
                     html += `<div class="mail-item" id="link-${link.short_code}">
-                        🔗 <code>${link.short_code}</code><br>
-                        🔗 Original: <span style="font-size:12px; word-break:break-all;" class="original-url-${link.short_code}">${link.original_url.substring(0, 80)}${link.original_url.length > 80 ? '...' : ''}</span><br>
-                        👆 Clicks: <span class="click-count" id="clicks-${link.short_code}">${link.clicks || 0}</span><br>
+                        🔗 <strong>Code:</strong> <code>${link.short_code}</code><br>
+                        🔗 <strong>Original URL:</strong><br>
+                        <span style="font-size:12px; word-break:break-all;">${link.original_url}</span><br>
+                        👆 <strong>Clicks:</strong> <span class="click-count" id="clicks-${link.short_code}">${link.clicks || 0}</span>
+                        <button class="refresh-count-btn" onclick="refreshClickCount('${link.short_code}')">🔄 REFRESH COUNT</button><br>
                         <button class="copy-btn" onclick="copyToClipboard('${shortUrl}')">📋 COPY</button>
                         <button class="copy-btn" onclick="editLink('${link.short_code}', \`${link.original_url.replace(/`/g, '\\`')}\`)">✏️ EDIT</button>
                         <button class="copy-btn" onclick="deleteLink('${link.short_code}')">🗑️ DELETE</button>
@@ -873,18 +917,20 @@
                 let links = JSON.parse(localStorage.getItem(STORAGE_KEYS.SHORTLINKS) || '[]');
                 const index = links.findIndex(l => l.short_code === shortCode);
                 if (index !== -1) {
+                    // Update the original URL completely
                     links[index].original_url = newUrl;
                     links[index].updated_at = new Date().toISOString();
                     localStorage.setItem(STORAGE_KEYS.SHORTLINKS, JSON.stringify(links));
-                    showToast('✅ Link updated! New URL: ' + newUrl.substring(0, 50) + (newUrl.length > 50 ? '...' : ''));
+                    showToast('✅ Link updated! New URL saved.');
                     loadMyLinks();
+                    
+                    // Also update on server
+                    fetch('/api/update_link', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({short_code: shortCode, new_url: newUrl})
+                    }).catch(e => console.log(e));
                 }
-                // Also update on server
-                fetch('/api/update_link', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({short_code: shortCode, new_url: newUrl})
-                }).catch(e => console.log(e));
             }
         }
         
@@ -901,16 +947,6 @@
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({short_code: shortCode})
                 }).catch(e => console.log(e));
-            }
-        }
-        
-        // Update click count from server (called when redirect happens)
-        async function updateClickCount(shortCode) {
-            let links = JSON.parse(localStorage.getItem(STORAGE_KEYS.SHORTLINKS) || '[]');
-            const index = links.findIndex(l => l.short_code === shortCode);
-            if (index !== -1) {
-                links[index].clicks = (links[index].clicks || 0) + 1;
-                localStorage.setItem(STORAGE_KEYS.SHORTLINKS, JSON.stringify(links));
             }
         }
         
@@ -968,7 +1004,6 @@
                         💰 <strong>Prepaid:</strong> ${data.prepaid ? 'YES' : 'NO'}
                     `, resultText);
                     
-                    // Save to history
                     saveBinToHistory(bin, resultText);
                 } else { 
                     div.innerHTML = `<div class="error">❌ ${data.error}</div>`; 
@@ -1229,6 +1264,17 @@
             else document.querySelectorAll('.tab-btn')[1].classList.add('active');
         }
         
+        // Add API endpoint for click count
+        async function getClickCountFromServer(shortCode) {
+            try {
+                const res = await fetch(`/api/get_click_count/${shortCode}`);
+                const data = await res.json();
+                return data.success ? data.clicks : 0;
+            } catch(e) {
+                return 0;
+            }
+        }
+        
         // ========== AUTO RESTORE ON PAGE LOAD ==========
         function restoreSavedData() {
             if (currentEmail && currentPassword) {
@@ -1255,9 +1301,6 @@
         }
         
         restoreSavedData();
-        
-        // Expose updateClickCount for redirect page
-        window.updateClickCount = updateClickCount;
     </script>
 </body>
 </html>

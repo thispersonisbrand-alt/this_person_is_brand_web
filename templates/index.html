@@ -131,6 +131,10 @@
             background: linear-gradient(90deg, #ff0066, #ff6600);
         }
         
+        button.success {
+            background: linear-gradient(90deg, #00cc66, #009944);
+        }
+        
         .output {
             margin-top: 15px;
             padding: 15px;
@@ -188,6 +192,7 @@
             margin-top: 10px;
             width: auto;
             display: inline-block;
+            margin-right: 5px;
         }
         
         .flex-row {
@@ -251,6 +256,41 @@
             font-size: 13px;
         }
         
+        .login-section {
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            border: 1px solid rgba(0,210,255,0.2);
+        }
+        
+        .login-section h4 {
+            margin-bottom: 10px;
+            color: #00d2ff;
+        }
+        
+        .saved-secrets {
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 10px;
+        }
+        
+        .secret-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        
+        .secret-item code {
+            font-size: 12px;
+            flex: 1;
+        }
+        
         @media (max-width: 768px) {
             .grid {
                 grid-template-columns: 1fr;
@@ -289,6 +329,22 @@
             text-align: center;
             padding: 15px;
         }
+        
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #00d2ff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -301,7 +357,7 @@
         <!-- Row 1 -->
         <div class="category">📧 CORE FEATURES</div>
         <div class="grid">
-            <!-- Temp Mail -->
+            <!-- Temp Mail with Login System -->
             <div class="card">
                 <div class="card-header">
                     <span class="card-icon">📧</span>
@@ -309,21 +365,40 @@
                 </div>
                 <button onclick="createMail()">✨ CREATE NEW MAIL</button>
                 <div id="mailResult" class="output"></div>
+                
+                <!-- Login Section -->
+                <div class="login-section">
+                    <h4>🔐 LOGIN TO EXISTING MAIL</h4>
+                    <input type="text" id="loginEmail" placeholder="Email address">
+                    <input type="text" id="loginPassword" placeholder="Password">
+                    <button onclick="loginToMail()" class="success">🔑 LOGIN</button>
+                </div>
+                
                 <button onclick="checkInbox()" style="margin-top:10px;">📥 CHECK INBOX</button>
                 <div id="inboxResult" class="output"></div>
                 <button onclick="loadSavedMails()" class="secondary">💾 SAVED MAILS</button>
                 <div id="savedMails" class="output"></div>
             </div>
             
-            <!-- 2FA -->
+            <!-- 2FA Generator with Save -->
             <div class="card">
                 <div class="card-header">
                     <span class="card-icon">🔐</span>
                     <h2>2FA Generator</h2>
                 </div>
                 <input type="text" id="secretKey" placeholder="Enter secret key (spaces allowed)">
+                <div class="flex-row">
+                    <input type="text" id="secretName" placeholder="Name (optional)" style="flex:2">
+                    <button onclick="saveSecret()" style="width:auto; padding:12px 20px;">💾 SAVE</button>
+                </div>
                 <button onclick="generate2FA()">🔢 GENERATE CODE</button>
                 <div id="tfaResult" class="output"></div>
+                
+                <!-- Saved Secrets -->
+                <div class="saved-secrets">
+                    <h4>📂 SAVED SECRETS</h4>
+                    <div id="savedSecretsList" class="output" style="max-height: 200px;"></div>
+                </div>
             </div>
             
             <!-- BIN -->
@@ -460,7 +535,7 @@
                     <button onclick="translateText()">🔄 TRANSLATE</button>
                 </div>
                 <div id="voiceTab" class="tab-content">
-                    <p style="margin-bottom:10px;">🎤 Speak English or Bengali</p>
+                    <p style="margin-bottom:10px;">🎤 Speak English or Bengali - I will translate to Bengali</p>
                     <button id="recordBtn" onclick="startRecording()">🎙️ START RECORDING</button>
                     <button onclick="stopRecording()" style="margin-top:5px">⏹️ STOP & TRANSLATE</button>
                     <div id="voiceStatus" class="output"></div>
@@ -470,26 +545,25 @@
         </div>
         
         <div class="footer">
-            ⚡ All Features Active | Click 📋 to Copy | Voice: English/Bengali → Bengali Translation
+            ⚡ All Features Active | Click 📋 to Copy | Login to existing mail | Voice: English/Bengali → Bengali Translation | 2FA Secrets Saved
         </div>
     </div>
     
     <script>
         let currentToken = null;
-        let current2FASecret = null;
+        let currentEmail = null;
         let mediaRecorder = null;
         let audioChunks = [];
         
-        // Helper: Copy to clipboard
+        // ========== HELPER FUNCTIONS ==========
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text);
             alert('📋 Copied to clipboard!');
         }
         
-        // Helper: Show output with copy button
         function showOutput(divId, content, copyText = null) {
             const div = document.getElementById(divId);
-            const textToCopy = copyText || content;
+            const textToCopy = copyText || content.replace(/<[^>]*>/g, '');
             div.innerHTML = `
                 <div class="output-content">${content}</div>
                 <button class="copy-btn" onclick="copyToClipboard('${textToCopy.replace(/'/g, "\\'")}')">📋 COPY</button>
@@ -505,6 +579,7 @@
                 const data = await res.json();
                 if (data.success) {
                     currentToken = data.token;
+                    currentEmail = data.email;
                     showOutput('mailResult', `
                         <div class="success">✅ MAIL CREATED</div>
                         <strong>📧 Email:</strong><br><code style="font-size:16px">${data.email}</code><br><br>
@@ -517,13 +592,52 @@
             } catch(e) { div.innerHTML = '<div class="error">Network error</div>'; }
         }
         
+        async function loginToMail() {
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            
+            if (!email || !password) {
+                document.getElementById('mailResult').innerHTML = '<div class="error">❌ Enter email and password</div>';
+                return;
+            }
+            
+            const div = document.getElementById('mailResult');
+            div.innerHTML = '<div class="loading">Logging in...</div>';
+            
+            try {
+                const res = await fetch('/api/login_mail', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email: email, password: password})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentToken = data.token;
+                    currentEmail = data.email;
+                    showOutput('mailResult', `
+                        <div class="success">✅ LOGIN SUCCESSFUL</div>
+                        <strong>📧 Email:</strong><br><code style="font-size:16px">${data.email}</code><br><br>
+                        <strong>🔑 Password:</strong><br><code style="font-size:16px">${data.password}</code><br><br>
+                        <strong>📥 Auto OTP Active</strong>
+                    `, `${data.email}\n${data.password}`);
+                    
+                    document.getElementById('loginEmail').value = '';
+                    document.getElementById('loginPassword').value = '';
+                } else {
+                    div.innerHTML = `<div class="error">❌ ${data.error}</div>`;
+                }
+            } catch(e) {
+                div.innerHTML = '<div class="error">❌ Login failed</div>';
+            }
+        }
+        
         async function checkInbox() {
             if (!currentToken) {
-                document.getElementById('inboxResult').innerHTML = '<div class="error">Create a mail first!</div>';
+                document.getElementById('inboxResult').innerHTML = '<div class="error">Create or login to a mail first!</div>';
                 return;
             }
             const div = document.getElementById('inboxResult');
-            div.innerHTML = '<div class="loading">Fetching...</div>';
+            div.innerHTML = '<div class="loading">Fetching inbox for ' + (currentEmail || 'your mail') + '...</div>';
             try {
                 const res = await fetch('/api/check_inbox', {
                     method: 'POST',
@@ -532,19 +646,21 @@
                 });
                 const data = await res.json();
                 if (data.success && data.messages.length > 0) {
-                    let html = '<strong>📩 INBOX</strong><br><br>';
+                    let html = `<strong>📩 INBOX (${currentEmail || ''})</strong><br><br>`;
                     data.messages.forEach(msg => {
                         html += `<div style="border-bottom:1px solid #333; padding:10px 0;">
                             <strong>📨 From:</strong> ${msg.from}<br>
                             <strong>📝 Subject:</strong> ${msg.subject}<br>
                             <strong>🔑 OTP:</strong> <span class="otp-code">${msg.otp}</span><br>
-                            <strong>📄 Message:</strong><br><code>${msg.body.substring(0, 500)}</code>
+                            <strong>📄 Message:</strong><br><code style="font-size:13px;">${msg.body.substring(0, 500)}</code>
                             <button class="copy-btn" onclick="copyToClipboard('${msg.otp}')">📋 COPY OTP</button>
                         </div>`;
                     });
                     div.innerHTML = html;
-                } else { div.innerHTML = '<div>📭 No messages</div>'; }
-            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+                } else { 
+                    div.innerHTML = `<div>📭 No messages in ${currentEmail || 'inbox'}</div>`;
+                }
+            } catch(e) { div.innerHTML = '<div class="error">Error fetching inbox</div>'; }
         }
         
         async function loadSavedMails() {
@@ -569,10 +685,89 @@
             } catch(e) { div.innerHTML = '<div class="error">Failed</div>'; }
         }
         
-        // ========== 2FA ==========
+        // ========== 2FA WITH SAVE ==========
+        async function saveSecret() {
+            const secret = document.getElementById('secretKey').value.trim();
+            const name = document.getElementById('secretName').value.trim();
+            
+            if (!secret) {
+                document.getElementById('tfaResult').innerHTML = '<div class="error">❌ Enter secret key first</div>';
+                return;
+            }
+            
+            try {
+                const res = await fetch('/api/save_2fa_secret', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({secret: secret, name: name || 'Unnamed'})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ Secret saved!');
+                    document.getElementById('secretKey').value = '';
+                    document.getElementById('secretName').value = '';
+                    loadSavedSecrets();
+                } else {
+                    alert('❌ Failed to save');
+                }
+            } catch(e) { alert('Error'); }
+        }
+        
+        async function loadSavedSecrets() {
+            const div = document.getElementById('savedSecretsList');
+            div.innerHTML = '<div class="loading">Loading...</div>';
+            try {
+                const res = await fetch('/api/get_2fa_secrets');
+                const data = await res.json();
+                if (data.success && data.secrets.length > 0) {
+                    let html = '';
+                    data.secrets.forEach(sec => {
+                        html += `
+                            <div class="secret-item">
+                                <code>${sec.name || sec.secret.substring(0, 15)}...</code>
+                                <button class="copy-btn" onclick="generateFromSaved('${sec.secret}')">🔢 GENERATE</button>
+                                <button class="copy-btn" onclick="deleteSecret('${sec.secret}')">🗑️</button>
+                            </div>
+                        `;
+                    });
+                    div.innerHTML = html;
+                } else {
+                    div.innerHTML = '<div>No saved secrets</div>';
+                }
+            } catch(e) { div.innerHTML = '<div class="error">Failed to load</div>'; }
+        }
+        
+        async function generateFromSaved(secret) {
+            document.getElementById('secretKey').value = secret;
+            generate2FA();
+        }
+        
+        async function deleteSecret(secret) {
+            if (confirm('Delete this secret?')) {
+                try {
+                    const res = await fetch('/api/delete_2fa_secret', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({secret: secret})
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert('✅ Deleted');
+                        loadSavedSecrets();
+                    } else {
+                        alert('Failed');
+                    }
+                } catch(e) { alert('Error'); }
+            }
+        }
+        
         async function generate2FA() {
             const secret = document.getElementById('secretKey').value.trim();
-            if (!secret) { document.getElementById('tfaResult').innerHTML = '<div class="error">Enter secret key</div>'; return; }
+            if (!secret) { 
+                document.getElementById('tfaResult').innerHTML = '<div class="error">❌ Enter secret key</div>'; 
+                loadSavedSecrets();
+                return; 
+            }
             const div = document.getElementById('tfaResult');
             div.innerHTML = '<div class="loading">Generating...</div>';
             try {
@@ -583,34 +778,32 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    current2FASecret = data.secret;
                     showOutput('tfaResult', `
                         <div class="success">✅ 2FA CODE</div>
-                        <span class="otp-code">${data.code}</span><br>
+                        <span class="otp-code" id="currentOtpCode">${data.code}</span><br>
                         ⏳ Expires in ${data.expires} seconds
                         <br><br>
-                        <button class="copy-btn" onclick="refresh2FA()">🔄 REFRESH</button>
+                        <button class="copy-btn" onclick="refresh2FA('${data.secret}')">🔄 REFRESH</button>
                     `, data.code);
                 } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
             } catch(e) { div.innerHTML = '<div class="error">Invalid secret</div>'; }
         }
         
-        async function refresh2FA() {
-            if (!current2FASecret) { return; }
+        async function refresh2FA(secret) {
             try {
                 const res = await fetch('/api/generate_2fa', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({secret: current2FASecret})
+                    body: JSON.stringify({secret: secret})
                 });
                 const data = await res.json();
                 if (data.success) {
                     showOutput('tfaResult', `
-                        <div class="success">✅ REFRESHED</div>
+                        <div class="success">✅ 2FA CODE (REFRESHED)</div>
                         <span class="otp-code">${data.code}</span><br>
                         ⏳ Expires in ${data.expires} seconds
                         <br><br>
-                        <button class="copy-btn" onclick="refresh2FA()">🔄 REFRESH</button>
+                        <button class="copy-btn" onclick="refresh2FA('${data.secret}')">🔄 REFRESH</button>
                     `, data.code);
                 }
             } catch(e) {}
@@ -860,7 +1053,7 @@
             } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
         }
         
-        // ========== TRANSLATION ==========
+        // ========== TRANSLATION (TEXT) ==========
         async function translateText() {
             const text = document.getElementById('translateText').value.trim();
             const target = document.getElementById('targetLang').value;
@@ -884,7 +1077,7 @@
             } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
         }
         
-        // ========== VOICE (Improved English to Bengali) ==========
+        // ========== VOICE (FIXED - English/Bengali to Bengali) ==========
         async function startRecording() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -892,7 +1085,7 @@
                 audioChunks = [];
                 mediaRecorder.ondataavailable = event => { audioChunks.push(event.data); };
                 mediaRecorder.start();
-                document.getElementById('voiceStatus').innerHTML = '<div class="success">🎙️ Recording... Speak now!</div>';
+                document.getElementById('voiceStatus').innerHTML = '<div class="success">🎙️ Recording... Speak now! (English or Bengali)</div>';
                 document.getElementById('recordBtn').textContent = '🔴 RECORDING...';
                 document.getElementById('recordBtn').disabled = true;
             } catch(e) {
@@ -912,37 +1105,31 @@
                         const res = await fetch('/api/voice_to_text', { method: 'POST', body: formData });
                         const data = await res.json();
                         if (data.success) {
-                            // First detect language, then translate to Bengali
-                            const detectedLang = await detectLanguageFast(data.text);
-                            let finalText = data.text;
-                            let translated = '';
+                            // Display recognized text
+                            document.getElementById('voiceStatus').innerHTML = `<div class="success">🎤 Recognized: "${data.text}"</div>`;
                             
-                            if (detectedLang !== 'bn') {
-                                // Translate to Bengali
-                                const transRes = await fetch('/api/translate', {
-                                    method: 'POST',
-                                    headers: {'Content-Type': 'application/json'},
-                                    body: JSON.stringify({text: data.text, target: 'bn'})
-                                });
-                                const transData = await transRes.json();
-                                if (transData.success) {
-                                    translated = transData.translated;
-                                    finalText = data.text;
-                                }
+                            // Translate to Bengali
+                            const transRes = await fetch('/api/translate', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({text: data.text, target: 'bn'})
+                            });
+                            const transData = await transRes.json();
+                            
+                            if (transData.success) {
+                                showOutput('transResult', `
+                                    <div class="success">✅ VOICE TO BENGALI</div>
+                                    <strong>🎤 Recognized:</strong><br><code style="font-size:14px;">${transData.original}</code><br><br>
+                                    <strong>🌐 Bengali Translation:</strong><br><code style="font-size:15px;">${transData.translated}</code>
+                                `, transData.translated);
                             } else {
-                                translated = data.text;
+                                showOutput('transResult', `
+                                    <div class="success">✅ RECOGNIZED</div>
+                                    <strong>🎤 Recognized:</strong><br><code style="font-size:14px;">${data.text}</code>
+                                `, data.text);
                             }
                             
-                            document.getElementById('translateText').value = finalText;
-                            document.getElementById('targetLang').value = 'bn';
-                            
-                            showOutput('transResult', `
-                                <div class="success">✅ VOICE RECOGNIZED & TRANSLATED</div>
-                                <strong>🎤 Recognized:</strong><br><code style="font-size:14px;">${finalText}</code><br><br>
-                                <strong>🌐 Bengali Translation:</strong><br><code style="font-size:15px;">${translated}</code>
-                            `, translated);
-                            
-                            document.getElementById('voiceStatus').innerHTML = `<div class="success">✅ Recognized: "${finalText.substring(0, 50)}..."</div>`;
+                            document.getElementById('translateText').value = data.text;
                         } else {
                             document.getElementById('voiceStatus').innerHTML = `<div class="error">❌ ${data.error}</div>`;
                         }
@@ -956,18 +1143,6 @@
             }
         }
         
-        async function detectLanguageFast(text) {
-            try {
-                const res = await fetch('/api/detect_language', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({text: text})
-                });
-                const data = await res.json();
-                return data.language || 'en';
-            } catch(e) { return 'en'; }
-        }
-        
         function switchTab(tab) {
             document.getElementById('textTab').classList.toggle('active', tab === 'text');
             document.getElementById('voiceTab').classList.toggle('active', tab === 'voice');
@@ -975,6 +1150,9 @@
             if (tab === 'text') event.target.classList.add('active');
             else document.querySelectorAll('.tab-btn')[1].classList.add('active');
         }
+        
+        // ========== LOAD SAVED SECRETS ON PAGE LOAD ==========
+        loadSavedSecrets();
     </script>
 </body>
 </html>

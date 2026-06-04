@@ -187,12 +187,17 @@
         
         .copy-btn {
             background: linear-gradient(90deg, #ff6600, #ff0066);
-            padding: 6px 12px;
-            font-size: 12px;
+            padding: 8px 16px;
+            font-size: 13px;
             margin-top: 10px;
             width: auto;
             display: inline-block;
-            margin-right: 5px;
+            margin-right: 8px;
+            border-radius: 8px;
+        }
+        
+        .copy-btn:hover {
+            background: linear-gradient(90deg, #ff0066, #ff6600);
         }
         
         .flex-row {
@@ -280,7 +285,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 8px;
+            padding: 10px;
             border-bottom: 1px solid rgba(255,255,255,0.1);
             flex-wrap: wrap;
             gap: 8px;
@@ -289,6 +294,22 @@
         .secret-item code {
             font-size: 12px;
             flex: 1;
+        }
+        
+        .mail-box {
+            background: rgba(0,0,0,0.3);
+            padding: 12px;
+            border-radius: 10px;
+            margin: 10px 0;
+        }
+        
+        .mail-box strong {
+            color: #00d2ff;
+        }
+        
+        .mail-box code {
+            font-size: 16px;
+            word-break: break-all;
         }
         
         @media (max-width: 768px) {
@@ -357,7 +378,7 @@
         <!-- Row 1 -->
         <div class="category">📧 CORE FEATURES</div>
         <div class="grid">
-            <!-- Temp Mail with Login System -->
+            <!-- Temp Mail with Login System - Separate Copy Buttons -->
             <div class="card">
                 <div class="card-header">
                     <span class="card-icon">📧</span>
@@ -366,7 +387,6 @@
                 <button onclick="createMail()">✨ CREATE NEW MAIL</button>
                 <div id="mailResult" class="output"></div>
                 
-                <!-- Login Section -->
                 <div class="login-section">
                     <h4>🔐 LOGIN TO EXISTING MAIL</h4>
                     <input type="text" id="loginEmail" placeholder="Email address">
@@ -394,7 +414,6 @@
                 <button onclick="generate2FA()">🔢 GENERATE CODE</button>
                 <div id="tfaResult" class="output"></div>
                 
-                <!-- Saved Secrets -->
                 <div class="saved-secrets">
                     <h4>📂 SAVED SECRETS</h4>
                     <div id="savedSecretsList" class="output" style="max-height: 200px;"></div>
@@ -545,20 +564,22 @@
         </div>
         
         <div class="footer">
-            ⚡ All Features Active | Click 📋 to Copy | Login to existing mail | Voice: English/Bengali → Bengali Translation | 2FA Secrets Saved
+            ⚡ All Features Active | Separate Copy Buttons for Email & Password | Voice: English/Bengali → Bengali Translation
         </div>
     </div>
     
     <script>
+        // ========== GLOBAL VARIABLES ==========
         let currentToken = null;
         let currentEmail = null;
+        let currentPassword = null;
         let mediaRecorder = null;
         let audioChunks = [];
         
         // ========== HELPER FUNCTIONS ==========
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text);
-            alert('📋 Copied to clipboard!');
+            alert('📋 Copied to clipboard: ' + text.substring(0, 50) + (text.length > 50 ? '...' : ''));
         }
         
         function showOutput(divId, content, copyText = null) {
@@ -570,7 +591,7 @@
             `;
         }
         
-        // ========== TEMP MAIL ==========
+        // ========== TEMP MAIL FUNCTIONS (UPDATED - Separate Copy Buttons) ==========
         async function createMail() {
             const div = document.getElementById('mailResult');
             div.innerHTML = '<div class="loading">Creating mail...</div>';
@@ -580,16 +601,28 @@
                 if (data.success) {
                     currentToken = data.token;
                     currentEmail = data.email;
-                    showOutput('mailResult', `
+                    currentPassword = data.password;
+                    
+                    div.innerHTML = `
                         <div class="success">✅ MAIL CREATED</div>
-                        <strong>📧 Email:</strong><br><code style="font-size:16px">${data.email}</code><br><br>
-                        <strong>🔑 Password:</strong><br><code style="font-size:16px">${data.password}</code><br><br>
-                        <strong>📥 Auto OTP Active</strong>
-                    `, `${data.email}\n${data.password}`);
+                        <div class="mail-box">
+                            📧 <strong>Email:</strong><br>
+                            <code style="font-size:16px; word-break:break-all;">${data.email}</code><br>
+                            <button class="copy-btn" onclick="copyToClipboard('${data.email}')" style="margin-top:8px;">📋 COPY EMAIL</button>
+                        </div>
+                        <div class="mail-box">
+                            🔑 <strong>Password:</strong><br>
+                            <code style="font-size:16px;">${data.password}</code><br>
+                            <button class="copy-btn" onclick="copyToClipboard('${data.password}')" style="margin-top:8px;">📋 COPY PASSWORD</button>
+                        </div>
+                        <div class="success">📥 Auto OTP Active</div>
+                    `;
                 } else {
                     div.innerHTML = `<div class="error">❌ ${data.error}</div>`;
                 }
-            } catch(e) { div.innerHTML = '<div class="error">Network error</div>'; }
+            } catch(e) { 
+                div.innerHTML = '<div class="error">Network error</div>'; 
+            }
         }
         
         async function loginToMail() {
@@ -614,12 +647,22 @@
                 if (data.success) {
                     currentToken = data.token;
                     currentEmail = data.email;
-                    showOutput('mailResult', `
+                    currentPassword = data.password;
+                    
+                    div.innerHTML = `
                         <div class="success">✅ LOGIN SUCCESSFUL</div>
-                        <strong>📧 Email:</strong><br><code style="font-size:16px">${data.email}</code><br><br>
-                        <strong>🔑 Password:</strong><br><code style="font-size:16px">${data.password}</code><br><br>
-                        <strong>📥 Auto OTP Active</strong>
-                    `, `${data.email}\n${data.password}`);
+                        <div class="mail-box">
+                            📧 <strong>Email:</strong><br>
+                            <code style="font-size:16px; word-break:break-all;">${data.email}</code><br>
+                            <button class="copy-btn" onclick="copyToClipboard('${data.email}')" style="margin-top:8px;">📋 COPY EMAIL</button>
+                        </div>
+                        <div class="mail-box">
+                            🔑 <strong>Password:</strong><br>
+                            <code style="font-size:16px;">${data.password}</code><br>
+                            <button class="copy-btn" onclick="copyToClipboard('${data.password}')" style="margin-top:8px;">📋 COPY PASSWORD</button>
+                        </div>
+                        <div class="success">📥 Auto OTP Active</div>
+                    `;
                     
                     document.getElementById('loginEmail').value = '';
                     document.getElementById('loginPassword').value = '';
@@ -648,7 +691,7 @@
                 if (data.success && data.messages.length > 0) {
                     let html = `<strong>📩 INBOX (${currentEmail || ''})</strong><br><br>`;
                     data.messages.forEach(msg => {
-                        html += `<div style="border-bottom:1px solid #333; padding:10px 0;">
+                        html += `<div class="mail-item">
                             <strong>📨 From:</strong> ${msg.from}<br>
                             <strong>📝 Subject:</strong> ${msg.subject}<br>
                             <strong>🔑 OTP:</strong> <span class="otp-code">${msg.otp}</span><br>
@@ -672,10 +715,10 @@
                 if (data.success && data.mails.length > 0) {
                     let html = '<strong>📂 RECENT MAILS</strong><br><br>';
                     data.mails.forEach(m => {
-                        html += `<div style="border-bottom:1px solid #333; padding:10px 0;">
+                        html += `<div class="mail-item">
                             📧 <code>${m.email}</code><br>
                             🔑 <code>${m.password}</code><br>
-                            📅 ${m.created}
+                            📅 ${m.created}<br>
                             <button class="copy-btn" onclick="copyToClipboard('${m.email}')">📋 COPY EMAIL</button>
                             <button class="copy-btn" onclick="copyToClipboard('${m.password}')">📋 COPY PASSWORD</button>
                         </div>`;
@@ -685,7 +728,7 @@
             } catch(e) { div.innerHTML = '<div class="error">Failed</div>'; }
         }
         
-        // ========== 2FA WITH SAVE ==========
+        // ========== 2FA FUNCTIONS ==========
         async function saveSecret() {
             const secret = document.getElementById('secretKey').value.trim();
             const name = document.getElementById('secretName').value.trim();
@@ -809,7 +852,7 @@
             } catch(e) {}
         }
         
-        // ========== BIN ==========
+        // ========== BIN FUNCTIONS ==========
         async function checkBIN() {
             const bin = document.getElementById('binNumber').value.trim();
             if (bin.length < 6) { document.getElementById('binResult').innerHTML = '<div class="error">Enter 6 digits</div>'; return; }
@@ -853,7 +896,7 @@
             } catch(e) { div.innerHTML = '<div class="error">Failed</div>'; }
         }
         
-        // ========== UID ==========
+        // ========== UID FUNCTIONS ==========
         async function extractUID() {
             const url = document.getElementById('fbUrl').value.trim();
             if (!url) { document.getElementById('uidResult').innerHTML = '<div class="error">Enter URL</div>'; return; }
@@ -877,7 +920,7 @@
             } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
         }
         
-        // ========== SHORTLINK ==========
+        // ========== SHORTLINK FUNCTIONS ==========
         async function shortenUrl() {
             const url = document.getElementById('longUrl').value.trim();
             if (!url) { document.getElementById('shortResult').innerHTML = '<div class="error">Enter URL</div>'; return; }
@@ -913,7 +956,7 @@
                     let html = '<strong>📂 YOUR SHORTLINKS</strong><br><br>';
                     data.links.forEach(link => {
                         const shortUrl = `https://${window.location.host}/s/${link.short_code}`;
-                        html += `<div style="border-bottom:1px solid #333; padding:10px 0;">
+                        html += `<div class="mail-item">
                             🔗 <code>${link.short_code}</code><br>
                             🔗 Original: <span style="font-size:12px;">${link.original_url.substring(0, 60)}...</span><br>
                             👆 Clicks: ${link.clicks}<br>
@@ -958,7 +1001,7 @@
             }
         }
         
-        // ========== QR ==========
+        // ========== QR FUNCTIONS ==========
         async function generateQR() {
             const text = document.getElementById('qrText').value.trim();
             if (!text) { document.getElementById('qrResult').innerHTML = '<div class="error">Enter text</div>'; return; }
@@ -979,7 +1022,7 @@
             } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
         }
         
-        // ========== PASSWORD ==========
+        // ========== PASSWORD GENERATOR ==========
         async function generatePassword() {
             const length = document.getElementById('pwdLength').value;
             const useUpper = document.getElementById('useUpper').checked;
@@ -1004,7 +1047,7 @@
             } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
         }
         
-        // ========== TIMEZONE ==========
+        // ========== TIMEZONE FUNCTIONS ==========
         async function convertTimezone() {
             const time = document.getElementById('inputTime').value;
             const fromTz = document.getElementById('fromTz').value;
@@ -1027,7 +1070,7 @@
             } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
         }
         
-        // ========== DICTIONARY ==========
+        // ========== DICTIONARY FUNCTIONS ==========
         async function lookupWord() {
             const word = document.getElementById('dictWord').value.trim();
             if (!word) { document.getElementById('dictResult').innerHTML = '<div class="error">Enter word</div>'; return; }
@@ -1053,7 +1096,7 @@
             } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
         }
         
-        // ========== TRANSLATION (TEXT) ==========
+        // ========== TEXT TRANSLATION ==========
         async function translateText() {
             const text = document.getElementById('translateText').value.trim();
             const target = document.getElementById('targetLang').value;
@@ -1077,7 +1120,7 @@
             } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
         }
         
-        // ========== VOICE (FIXED - English/Bengali to Bengali) ==========
+        // ========== VOICE FUNCTIONS (FIXED) ==========
         async function startRecording() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1105,10 +1148,8 @@
                         const res = await fetch('/api/voice_to_text', { method: 'POST', body: formData });
                         const data = await res.json();
                         if (data.success) {
-                            // Display recognized text
                             document.getElementById('voiceStatus').innerHTML = `<div class="success">🎤 Recognized: "${data.text}"</div>`;
                             
-                            // Translate to Bengali
                             const transRes = await fetch('/api/translate', {
                                 method: 'POST',
                                 headers: {'Content-Type': 'application/json'},

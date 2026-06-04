@@ -455,7 +455,7 @@
         </div>
         
         <div class="footer">
-            ⚡ All Features Active | Shortlink Edit Works | Click Count with Refresh Button | Auto Save on Device
+            ⚡ All Features Active | Shortlink Edit & Copy Fixed | Click Count with Refresh Button
         </div>
     </div>
     
@@ -489,7 +489,7 @@
         
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text);
-            showToast('📋 Copied: ' + text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+            showToast('📋 Copied to clipboard!');
         }
         
         function showOutput(divId, content, copyText = null) {
@@ -580,12 +580,12 @@
                 <div class="mail-box">
                     📧 <strong>Email:</strong><br>
                     <code style="font-size:16px; word-break:break-all;">${email}</code><br>
-                    <button class="copy-btn" onclick="copyToClipboard('${email}')" style="margin-top:8px;">📋 COPY EMAIL</button>
+                    <button class="copy-btn" onclick="copyToClipboard('${email}')">📋 COPY EMAIL</button>
                 </div>
                 <div class="mail-box">
                     🔑 <strong>Password:</strong><br>
                     <code style="font-size:16px;">${password}</code><br>
-                    <button class="copy-btn" onclick="copyToClipboard('${password}')" style="margin-top:8px;">📋 COPY PASSWORD</button>
+                    <button class="copy-btn" onclick="copyToClipboard('${password}')">📋 COPY PASSWORD</button>
                 </div>
                 <div class="success">📥 Auto OTP Active</div>
             `;
@@ -606,12 +606,12 @@
                         <div class="mail-box">
                             📧 <strong>Email:</strong><br>
                             <code style="font-size:16px; word-break:break-all;">${data.email}</code><br>
-                            <button class="copy-btn" onclick="copyToClipboard('${data.email}')" style="margin-top:8px;">📋 COPY EMAIL</button>
+                            <button class="copy-btn" onclick="copyToClipboard('${data.email}')">📋 COPY EMAIL</button>
                         </div>
                         <div class="mail-box">
                             🔑 <strong>Password:</strong><br>
                             <code style="font-size:16px;">${data.password}</code><br>
-                            <button class="copy-btn" onclick="copyToClipboard('${data.password}')" style="margin-top:8px;">📋 COPY PASSWORD</button>
+                            <button class="copy-btn" onclick="copyToClipboard('${data.password}')">📋 COPY PASSWORD</button>
                         </div>
                         <div class="success">📥 Auto OTP Active</div>
                     `;
@@ -650,12 +650,12 @@
                         <div class="mail-box">
                             📧 <strong>Email:</strong><br>
                             <code style="font-size:16px; word-break:break-all;">${data.email}</code><br>
-                            <button class="copy-btn" onclick="copyToClipboard('${data.email}')" style="margin-top:8px;">📋 COPY EMAIL</button>
+                            <button class="copy-btn" onclick="copyToClipboard('${data.email}')">📋 COPY EMAIL</button>
                         </div>
                         <div class="mail-box">
                             🔑 <strong>Password:</strong><br>
                             <code style="font-size:16px;">${data.password}</code><br>
-                            <button class="copy-btn" onclick="copyToClipboard('${data.password}')" style="margin-top:8px;">📋 COPY PASSWORD</button>
+                            <button class="copy-btn" onclick="copyToClipboard('${data.password}')">📋 COPY PASSWORD</button>
                         </div>
                         <div class="success">📥 Auto OTP Active</div>
                     `;
@@ -810,55 +810,30 @@
             } catch(e) {}
         }
         
-        // ========== SHORTLINK FUNCTIONS (FIXED EDIT & CLICK COUNT WITH REFRESH) ==========
-        async function getServerClickCount(shortCode) {
-            try {
-                const res = await fetch(`/api/get_click_count/${shortCode}`);
-                const data = await res.json();
-                if (data.success) {
-                    return data.clicks;
-                }
-            } catch(e) {
-                console.log('Error fetching click count');
-            }
-            return null;
-        }
+        // ========== SHORTLINK FUNCTIONS (FULLY FIXED) ==========
         
-        async function refreshClickCount(shortCode) {
-            showToast('🔄 Refreshing click count...');
-            const serverClicks = await getServerClickCount(shortCode);
-            if (serverClicks !== null) {
-                let links = JSON.parse(localStorage.getItem(STORAGE_KEYS.SHORTLINKS) || '[]');
-                const index = links.findIndex(l => l.short_code === shortCode);
-                if (index !== -1) {
-                    links[index].clicks = serverClicks;
-                    localStorage.setItem(STORAGE_KEYS.SHORTLINKS, JSON.stringify(links));
-                    showToast(`✅ Click count updated: ${serverClicks}`);
-                    loadMyLinks();
-                } else {
-                    showToast('❌ Link not found');
-                }
-            } else {
-                showToast('❌ Failed to fetch click count');
-            }
-        }
-        
+        // Force reload shortlinks from storage
         function loadMyLinks() {
             const div = document.getElementById('myLinks');
             let links = JSON.parse(localStorage.getItem(STORAGE_KEYS.SHORTLINKS) || '[]');
             
             if (links.length > 0) {
                 let html = '<strong>📂 YOUR SHORTLINKS</strong><br><br>';
-                links.forEach(link => {
+                links.forEach((link, index) => {
                     const shortUrl = `https://${window.location.host}/s/${link.short_code}`;
-                    html += `<div class="mail-item" id="link-${link.short_code}">
+                    // Escape for JavaScript
+                    const escapedUrl = link.original_url.replace(/`/g, '\\`').replace(/'/g, "\\'");
+                    html += `<div class="mail-item" data-shortcode="${link.short_code}">
                         🔗 <strong>Code:</strong> <code>${link.short_code}</code><br>
+                        🔗 <strong>Short URL:</strong><br>
+                        <code style="font-size:13px; word-break:break-all;" id="shortUrl_${index}">${shortUrl}</code><br>
                         🔗 <strong>Original URL:</strong><br>
-                        <span style="font-size:12px; word-break:break-all;">${link.original_url}</span><br>
+                        <span style="font-size:12px; word-break:break-all;" id="originalUrl_${index}">${link.original_url}</span><br>
                         👆 <strong>Clicks:</strong> <span class="click-count" id="clicks-${link.short_code}">${link.clicks || 0}</span>
                         <button class="refresh-count-btn" onclick="refreshClickCount('${link.short_code}')">🔄 REFRESH COUNT</button><br>
-                        <button class="copy-btn" onclick="copyToClipboard('${shortUrl}')">📋 COPY</button>
-                        <button class="copy-btn" onclick="editLink('${link.short_code}', \`${link.original_url.replace(/`/g, '\\`')}\`)">✏️ EDIT</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${shortUrl}')">📋 COPY SHORT URL</button>
+                        <button class="copy-btn" onclick="copyToClipboard(document.getElementById('originalUrl_${index}').innerText)">📋 COPY ORIGINAL URL</button>
+                        <button class="copy-btn" onclick="editLink('${link.short_code}', '${escapedUrl}', ${index})">✏️ EDIT</button>
                         <button class="copy-btn" onclick="deleteLink('${link.short_code}')">🗑️ DELETE</button>
                     </div>`;
                 });
@@ -900,6 +875,7 @@
                         <div class="success">✅ SHORTLINK CREATED & SAVED</div>
                         🔗 <a href="${data.short_url}" target="_blank" style="color:#00d2ff; font-size:16px;">${data.short_url}</a><br>
                         📋 Code: <code>${data.code}</code>
+                        <button class="copy-btn" onclick="copyToClipboard('${data.short_url}')">📋 COPY SHORT URL</button>
                     `, data.short_url);
                     document.getElementById('longUrl').value = '';
                     loadMyLinks();
@@ -911,23 +887,28 @@
             }
         }
         
-        function editLink(shortCode, currentUrl) {
+        function editLink(shortCode, currentUrl, index) {
             const newUrl = prompt('Edit URL:\nCurrent: ' + currentUrl + '\n\nEnter new URL:', currentUrl);
             if (newUrl && newUrl !== currentUrl) {
                 let links = JSON.parse(localStorage.getItem(STORAGE_KEYS.SHORTLINKS) || '[]');
-                const index = links.findIndex(l => l.short_code === shortCode);
-                if (index !== -1) {
-                    // Update the original URL completely
-                    links[index].original_url = newUrl;
-                    links[index].updated_at = new Date().toISOString();
+                const linkIndex = links.findIndex(l => l.short_code === shortCode);
+                if (linkIndex !== -1) {
+                    // Update the original URL
+                    links[linkIndex].original_url = newUrl;
+                    links[linkIndex].updated_at = new Date().toISOString();
                     localStorage.setItem(STORAGE_KEYS.SHORTLINKS, JSON.stringify(links));
+                    
+                    // Update the display immediately
+                    const originalSpan = document.getElementById(`originalUrl_${index}`);
+                    if (originalSpan) {
+                        originalSpan.innerText = newUrl;
+                    }
                     showToast('✅ Link updated! New URL saved.');
-                    loadMyLinks();
                     
                     // Also update on server
                     fetch('/api/update_link', {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
+                        headers: {'Content-Type':application/json'},
                         body: JSON.stringify({short_code: shortCode, new_url: newUrl})
                     }).catch(e => console.log(e));
                 }
@@ -950,7 +931,32 @@
             }
         }
         
-        // ========== BIN FUNCTIONS (WITH HISTORY) ==========
+        async function refreshClickCount(shortCode) {
+            showToast('🔄 Refreshing click count...');
+            try {
+                const res = await fetch(`/api/get_click_count/${shortCode}`);
+                const data = await res.json();
+                if (data.success) {
+                    let links = JSON.parse(localStorage.getItem(STORAGE_KEYS.SHORTLINKS) || '[]');
+                    const index = links.findIndex(l => l.short_code === shortCode);
+                    if (index !== -1) {
+                        links[index].clicks = data.clicks;
+                        localStorage.setItem(STORAGE_KEYS.SHORTLINKS, JSON.stringify(links));
+                        const clickSpan = document.getElementById(`clicks-${shortCode}`);
+                        if (clickSpan) {
+                            clickSpan.innerText = data.clicks;
+                        }
+                        showToast(`✅ Click count updated: ${data.clicks}`);
+                    }
+                } else {
+                    showToast('❌ Failed to fetch click count');
+                }
+            } catch(e) {
+                showToast('❌ Error fetching click count');
+            }
+        }
+        
+        // ========== BIN FUNCTIONS ==========
         function saveBinToHistory(bin, resultText) {
             let history = JSON.parse(localStorage.getItem(STORAGE_KEYS.BIN_HISTORY) || '[]');
             history.unshift({ bin: bin, result: resultText, date: new Date().toISOString() });
@@ -1264,17 +1270,6 @@
             else document.querySelectorAll('.tab-btn')[1].classList.add('active');
         }
         
-        // Add API endpoint for click count
-        async function getClickCountFromServer(shortCode) {
-            try {
-                const res = await fetch(`/api/get_click_count/${shortCode}`);
-                const data = await res.json();
-                return data.success ? data.clicks : 0;
-            } catch(e) {
-                return 0;
-            }
-        }
-        
         // ========== AUTO RESTORE ON PAGE LOAD ==========
         function restoreSavedData() {
             if (currentEmail && currentPassword) {
@@ -1284,12 +1279,12 @@
                     <div class="mail-box">
                         📧 <strong>Email:</strong><br>
                         <code style="font-size:16px; word-break:break-all;">${currentEmail}</code><br>
-                        <button class="copy-btn" onclick="copyToClipboard('${currentEmail}')" style="margin-top:8px;">📋 COPY EMAIL</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${currentEmail}')">📋 COPY EMAIL</button>
                     </div>
                     <div class="mail-box">
                         🔑 <strong>Password:</strong><br>
                         <code style="font-size:16px;">${currentPassword}</code><br>
-                        <button class="copy-btn" onclick="copyToClipboard('${currentPassword}')" style="margin-top:8px;">📋 COPY PASSWORD</button>
+                        <button class="copy-btn" onclick="copyToClipboard('${currentPassword}')">📋 COPY PASSWORD</button>
                     </div>
                     <div class="success">📥 Auto OTP Active</div>
                 `;

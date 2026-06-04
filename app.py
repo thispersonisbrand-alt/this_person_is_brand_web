@@ -39,38 +39,7 @@ app = Flask(__name__)
 conn = sqlite3.connect("database.db", check_same_thread=False)
 cursor = conn.cursor()
 
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS temp_mails(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    email TEXT,
-    password TEXT,
-    token TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
-""")
-
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS bin_history(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    bin_number TEXT,
-    result TEXT,
-    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
-""")
-
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS short_links(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    short_code TEXT UNIQUE,
-    original_url TEXT,
-    user_id TEXT,
-    device_info TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    clicks INTEGER DEFAULT 0,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-)
-""")
-
+# Users sessions table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS users_sessions(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -80,6 +49,43 @@ CREATE TABLE IF NOT EXISTS users_sessions(
 )
 """)
 
+# Temp mails table
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS temp_mails(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    email TEXT,
+    password TEXT,
+    token TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+
+# Bin history table
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS bin_history(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT,
+    bin_number TEXT,
+    result TEXT,
+    checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+
+# Short links table
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS short_links(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    short_code TEXT UNIQUE,
+    original_url TEXT,
+    user_id TEXT,
+    clicks INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+)
+""")
+
+# 2FA Secrets table
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS secrets(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -128,7 +134,7 @@ def get_domain():
     except:
         return "mail.tm"
 
-def create_temp_mail():
+def create_temp_mail(user_id):
     domain = get_domain()
     username = "thispersonisbrand" + str(random.randint(100000000, 999999999))
     email = f"{username}@{domain}"
@@ -144,22 +150,21 @@ def create_temp_mail():
                                  json={"address": email, "password": password}, timeout=10)
         token = token_req.json()["token"]
         
-        cursor.execute("INSERT INTO temp_mails(email, password, token) VALUES(?,?,?)",
-                      (email, password, token))
+        cursor.execute("INSERT INTO temp_mails(user_id, email, password, token) VALUES(?,?,?,?)",
+                      (user_id, email, password, token))
         conn.commit()
         return email, password, token
     except:
         return None, None, None
 
-def login_existing_mail(email, password):
+def login_existing_mail(email, password, user_id):
     try:
         payload = {"address": email, "password": password}
         r = requests.post("https://api.mail.tm/token", json=payload, timeout=10)
         if r.status_code == 200:
             token = r.json()["token"]
-            # Save to database
-            cursor.execute("INSERT INTO temp_mails(email, password, token) VALUES(?,?,?)",
-                          (email, password, token))
+            cursor.execute("INSERT INTO temp_mails(user_id, email, password, token) VALUES(?,?,?,?)",
+                          (user_id, email, password, token))
             conn.commit()
             return token
     except:
@@ -186,10 +191,14 @@ def extract_otp(text):
     otp_codes = re.findall(r'\b\d{4,8}\b', text)
     return otp_codes[0] if otp_codes else "NOT FOUND"
 
+def get_saved_mails(user_id):
+    cursor.execute("SELECT email, password, created_at FROM temp_mails WHERE user_id=? ORDER BY id DESC LIMIT 10", (user_id,))
+    return cursor.fetchall()
+
 # =========================================================
 # BIN CHECK FUNCTIONS
 # =========================================================
-def check_bin(bin_num):
+def check_bin(bin_num, user_id):
     try:
         r = requests.get(f"https://lookup.binlist.net/{bin_num[:6]}", 
                         headers={"Accept-Version": "3"}, timeout=10)
@@ -208,23 +217,33 @@ def check_bin(bin_num):
                 "country_emoji": data.get("country", {}).get("emoji", ""),
                 "currency": data.get("country", {}).get("currency", "N/A")
             }
-            cursor.execute("INSERT INTO bin_history(bin_number, result) VALUES(?,?)",
-                          (bin_num[:6], str(result)))
+            cursor.execute("INSERT INTO bin_history(user_id, bin_number, result) VALUES(?,?,?)",
+                          (user_id, bin_num[:6], str(result)))
             conn.commit()
             return result
     except:
         pass
     return None
 
+def get_bin_history(user_id):
+    cursor.execute("SELECT bin_number, checked_at FROM bin_history WHERE user_id=? ORDER BY id DESC LIMIT 10", (user_id,))
+    return cursor.fetchall()
+
 # =========================================================
 # SHORTLINK MANAGEMENT
 # =========================================================
 def generate_short_code(url, user_id):
-    hash_obj = hashlib.md5(f"{url}_{user_id}".encode())
+    hash_obj = hashlib.md5(f"{url}_{user_id}_{int(time.time())}".encode())
     code = base64.b64encode(hash_obj.digest())[:6].decode().replace('/', '_').replace('+', '-')
     return code
 
 def create_or_update_short_link(url, user_id):
+    # Check if same URL already exists for this user
+    cursor.execute("SELECT short_code FROM short_links WHERE original_url=? AND user_id=?", (url, user_id))
+    existing = cursor.fetchone()
+    if existing:
+        return existing[0], "existing"
+    
     short_code = generate_short_code(url, user_id)
     try:
         cursor.execute("""
@@ -234,13 +253,14 @@ def create_or_update_short_link(url, user_id):
         conn.commit()
         return short_code, "created"
     except sqlite3.IntegrityError:
+        # If duplicate short_code, regenerate
+        short_code = generate_short_code(url + str(random.random()), user_id)
         cursor.execute("""
-            UPDATE short_links 
-            SET original_url=?, updated_at=CURRENT_TIMESTAMP 
-            WHERE short_code=?
-        """, (url, short_code))
+            INSERT INTO short_links(short_code, original_url, user_id) 
+            VALUES(?,?,?)
+        """, (short_code, url, user_id))
         conn.commit()
-        return short_code, "updated"
+        return short_code, "created"
 
 def get_user_shortlinks(user_id):
     cursor.execute("""
@@ -279,6 +299,22 @@ def get_original_url(short_code):
     cursor.execute("SELECT original_url FROM short_links WHERE short_code=?", (short_code,))
     row = cursor.fetchone()
     return row[0] if row else None
+
+# =========================================================
+# 2FA SECRET MANAGEMENT
+# =========================================================
+def save_secret(user_id, secret, name):
+    secret = re.sub(r'\s+', '', secret).upper()
+    cursor.execute("INSERT INTO secrets(user_id, secret, name) VALUES(?,?,?)", (user_id, secret, name))
+    conn.commit()
+
+def get_secrets(user_id):
+    cursor.execute("SELECT secret, name FROM secrets WHERE user_id=? ORDER BY id DESC", (user_id,))
+    return cursor.fetchall()
+
+def delete_secret(user_id, secret):
+    cursor.execute("DELETE FROM secrets WHERE user_id=? AND secret=?", (user_id, secret))
+    conn.commit()
 
 # =========================================================
 # FACEBOOK UID EXTRACTOR
@@ -451,7 +487,8 @@ def index():
 # ========== TEMP MAIL ROUTES ==========
 @app.route('/api/create_mail', methods=['GET'])
 def api_create_mail():
-    email, password, token = create_temp_mail()
+    user_id = get_or_create_user_id(request)
+    email, password, token = create_temp_mail(user_id)
     if email:
         return jsonify({"success": True, "email": email, "password": password, "token": token})
     return jsonify({"success": False, "error": "Failed to create mail"})
@@ -461,11 +498,12 @@ def api_login_mail():
     data = request.json
     email = data.get('email', '')
     password = data.get('password', '')
+    user_id = get_or_create_user_id(request)
     
     if not email or not password:
         return jsonify({"success": False, "error": "Email and password required"})
     
-    token = login_existing_mail(email, password)
+    token = login_existing_mail(email, password, user_id)
     if token:
         return jsonify({"success": True, "email": email, "password": password, "token": token})
     return jsonify({"success": False, "error": "Invalid credentials"})
@@ -497,8 +535,8 @@ def api_check_inbox():
 
 @app.route('/api/get_saved_mails', methods=['GET'])
 def api_get_saved_mails():
-    cursor.execute("SELECT email, password, created_at FROM temp_mails ORDER BY id DESC LIMIT 10")
-    mails = cursor.fetchall()
+    user_id = get_or_create_user_id(request)
+    mails = get_saved_mails(user_id)
     return jsonify({"success": True, "mails": [{"email": m[0], "password": m[1], "created": m[2]} for m in mails]})
 
 # ========== 2FA ROUTES ==========
@@ -521,18 +559,14 @@ def api_save_2fa_secret():
     name = data.get('name', 'Unnamed')
     user_id = get_or_create_user_id(request)
     
-    # Remove spaces from secret
     secret = re.sub(r'\s+', '', secret).upper()
-    
-    cursor.execute("INSERT INTO secrets(user_id, secret, name) VALUES(?,?,?)", (user_id, secret, name))
-    conn.commit()
+    save_secret(user_id, secret, name)
     return jsonify({"success": True})
 
 @app.route('/api/get_2fa_secrets', methods=['GET'])
 def api_get_2fa_secrets():
     user_id = get_or_create_user_id(request)
-    cursor.execute("SELECT secret, name FROM secrets WHERE user_id=? ORDER BY id DESC", (user_id,))
-    secrets = cursor.fetchall()
+    secrets = get_secrets(user_id)
     return jsonify({"success": True, "secrets": [{"secret": s[0], "name": s[1]} for s in secrets]})
 
 @app.route('/api/delete_2fa_secret', methods=['POST'])
@@ -540,8 +574,7 @@ def api_delete_2fa_secret():
     data = request.json
     secret = data.get('secret', '')
     user_id = get_or_create_user_id(request)
-    cursor.execute("DELETE FROM secrets WHERE user_id=? AND secret=?", (user_id, secret))
-    conn.commit()
+    delete_secret(user_id, secret)
     return jsonify({"success": True})
 
 # ========== BIN CHECK ROUTES ==========
@@ -551,15 +584,17 @@ def api_check_bin():
     bin_num = data.get('bin', '')[:6]
     if len(bin_num) < 6:
         return jsonify({"success": False, "error": "Enter at least 6 digits"})
-    result = check_bin(bin_num)
+    
+    user_id = get_or_create_user_id(request)
+    result = check_bin(bin_num, user_id)
     if result:
         return jsonify({"success": True, **result, "bin": bin_num})
     return jsonify({"success": False, "error": "Invalid BIN"})
 
 @app.route('/api/bin_history', methods=['GET'])
 def api_bin_history():
-    cursor.execute("SELECT bin_number, checked_at FROM bin_history ORDER BY id DESC LIMIT 10")
-    history = cursor.fetchall()
+    user_id = get_or_create_user_id(request)
+    history = get_bin_history(user_id)
     return jsonify({"success": True, "history": [{"bin": h[0], "date": h[1]} for h in history]})
 
 # ========== UID EXTRACTOR ROUTES ==========

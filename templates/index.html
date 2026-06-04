@@ -366,19 +366,37 @@
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #00cc66;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            z-index: 1000;
+            animation: fadeOut 2s ease forwards;
+        }
+        
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; visibility: hidden; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
             <div class="logo">⚡ THIS PERSON IS BRAND WEB</div>
-            <div style="color:#aaa; margin-top:5px;">Temp Mail | Auto OTP | 2FA | UID | BIN | ShortLink | QR | Password | Timezone | Dictionary | Translate | Voice</div>
+            <div style="color:#aaa; margin-top:5px;">Temp Mail | Auto OTP | 2FA | UID | BIN | ShortLink | QR | Password | Timezone | Dictionary | Translate | Voice | Auto Save on Device</div>
         </div>
         
-        <!-- Row 1 -->
         <div class="category">📧 CORE FEATURES</div>
         <div class="grid">
-            <!-- Temp Mail with Login System - Separate Copy Buttons -->
+            <!-- Temp Mail -->
             <div class="card">
                 <div class="card-header">
                     <span class="card-icon">📧</span>
@@ -400,7 +418,7 @@
                 <div id="savedMails" class="output"></div>
             </div>
             
-            <!-- 2FA Generator with Save -->
+            <!-- 2FA -->
             <div class="card">
                 <div class="card-header">
                     <span class="card-icon">🔐</span>
@@ -445,7 +463,6 @@
             </div>
         </div>
         
-        <!-- Row 2 -->
         <div class="category">🛠️ UTILITY FEATURES</div>
         <div class="grid">
             <!-- Shortlink -->
@@ -518,7 +535,6 @@
             </div>
         </div>
         
-        <!-- Row 3 -->
         <div class="category">📖 DICTIONARY & TRANSLATION</div>
         <div class="grid">
             <!-- Dictionary -->
@@ -564,22 +580,124 @@
         </div>
         
         <div class="footer">
-            ⚡ All Features Active | Separate Copy Buttons for Email & Password | Voice: English/Bengali → Bengali Translation
+            ⚡ All Features Active | Auto Save on Device (Reload, Close, Reopen - Data Safe!)
         </div>
     </div>
     
     <script>
+        // ========== LOCAL STORAGE KEYS ==========
+        const STORAGE_KEYS = {
+            MAIL_TOKEN: 'brand_mail_token',
+            MAIL_EMAIL: 'brand_mail_email',
+            MAIL_PASSWORD: 'brand_mail_password',
+            TWOFA_SECRETS: 'brand_2fa_secrets',
+            SHORTLINKS: 'brand_shortlinks'
+        };
+        
         // ========== GLOBAL VARIABLES ==========
-        let currentToken = null;
-        let currentEmail = null;
-        let currentPassword = null;
+        let currentToken = localStorage.getItem(STORAGE_KEYS.MAIL_TOKEN) || null;
+        let currentEmail = localStorage.getItem(STORAGE_KEYS.MAIL_EMAIL) || null;
+        let currentPassword = localStorage.getItem(STORAGE_KEYS.MAIL_PASSWORD) || null;
         let mediaRecorder = null;
         let audioChunks = [];
         
         // ========== HELPER FUNCTIONS ==========
+        function showToast(message) {
+            let toast = document.createElement('div');
+            toast.className = 'toast';
+            toast.innerText = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+        
         function copyToClipboard(text) {
             navigator.clipboard.writeText(text);
-            alert('📋 Copied to clipboard: ' + text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+            showToast('📋 Copied: ' + text.substring(0, 50) + (text.length > 50 ? '...' : ''));
+        }
+        
+        function saveMailToLocalStorage(email, password, token) {
+            localStorage.setItem(STORAGE_KEYS.MAIL_EMAIL, email);
+            localStorage.setItem(STORAGE_KEYS.MAIL_PASSWORD, password);
+            localStorage.setItem(STORAGE_KEYS.MAIL_TOKEN, token);
+            currentToken = token;
+            currentEmail = email;
+            currentPassword = password;
+        }
+        
+        function clearMailFromLocalStorage() {
+            localStorage.removeItem(STORAGE_KEYS.MAIL_EMAIL);
+            localStorage.removeItem(STORAGE_KEYS.MAIL_PASSWORD);
+            localStorage.removeItem(STORAGE_KEYS.MAIL_TOKEN);
+            currentToken = null;
+            currentEmail = null;
+            currentPassword = null;
+        }
+        
+        function saveSecretsToLocalStorage(secrets) {
+            localStorage.setItem(STORAGE_KEYS.TWOFA_SECRETS, JSON.stringify(secrets));
+        }
+        
+        function getSecretsFromLocalStorage() {
+            const secrets = localStorage.getItem(STORAGE_KEYS.TWOFA_SECRETS);
+            return secrets ? JSON.parse(secrets) : [];
+        }
+        
+        function addSecretToLocalStorage(secret, name) {
+            let secrets = getSecretsFromLocalStorage();
+            secrets.unshift({ secret: secret, name: name, created: new Date().toISOString() });
+            saveSecretsToLocalStorage(secrets);
+        }
+        
+        function removeSecretFromLocalStorage(secret) {
+            let secrets = getSecretsFromLocalStorage();
+            secrets = secrets.filter(s => s.secret !== secret);
+            saveSecretsToLocalStorage(secrets);
+        }
+        
+        function saveShortlinksToLocalStorage(links) {
+            localStorage.setItem(STORAGE_KEYS.SHORTLINKS, JSON.stringify(links));
+        }
+        
+        function getShortlinksFromLocalStorage() {
+            const links = localStorage.getItem(STORAGE_KEYS.SHORTLINKS);
+            return links ? JSON.parse(links) : [];
+        }
+        
+        function addShortlinkToLocalStorage(shortCode, originalUrl) {
+            let links = getShortlinksFromLocalStorage();
+            // Check if already exists
+            const existing = links.find(l => l.short_code === shortCode);
+            if (existing) {
+                existing.original_url = originalUrl;
+                existing.updated_at = new Date().toISOString();
+            } else {
+                links.unshift({
+                    short_code: shortCode,
+                    original_url: originalUrl,
+                    clicks: 0,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString()
+                });
+            }
+            saveShortlinksToLocalStorage(links);
+        }
+        
+        function updateShortlinkInLocalStorage(shortCode, newUrl) {
+            let links = getShortlinksFromLocalStorage();
+            const index = links.findIndex(l => l.short_code === shortCode);
+            if (index !== -1) {
+                links[index].original_url = newUrl;
+                links[index].updated_at = new Date().toISOString();
+                saveShortlinksToLocalStorage(links);
+                return true;
+            }
+            return false;
+        }
+        
+        function deleteShortlinkFromLocalStorage(shortCode) {
+            let links = getShortlinksFromLocalStorage();
+            links = links.filter(l => l.short_code !== shortCode);
+            saveShortlinksToLocalStorage(links);
         }
         
         function showOutput(divId, content, copyText = null) {
@@ -591,7 +709,7 @@
             `;
         }
         
-        // ========== TEMP MAIL FUNCTIONS (UPDATED - Separate Copy Buttons) ==========
+        // ========== TEMP MAIL FUNCTIONS ==========
         async function createMail() {
             const div = document.getElementById('mailResult');
             div.innerHTML = '<div class="loading">Creating mail...</div>';
@@ -599,12 +717,10 @@
                 const res = await fetch('/api/create_mail');
                 const data = await res.json();
                 if (data.success) {
-                    currentToken = data.token;
-                    currentEmail = data.email;
-                    currentPassword = data.password;
+                    saveMailToLocalStorage(data.email, data.password, data.token);
                     
                     div.innerHTML = `
-                        <div class="success">✅ MAIL CREATED</div>
+                        <div class="success">✅ MAIL CREATED & AUTO SAVED</div>
                         <div class="mail-box">
                             📧 <strong>Email:</strong><br>
                             <code style="font-size:16px; word-break:break-all;">${data.email}</code><br>
@@ -615,7 +731,7 @@
                             <code style="font-size:16px;">${data.password}</code><br>
                             <button class="copy-btn" onclick="copyToClipboard('${data.password}')" style="margin-top:8px;">📋 COPY PASSWORD</button>
                         </div>
-                        <div class="success">📥 Auto OTP Active</div>
+                        <div class="success">📥 Auto OTP Active | Reload/Close - Data Safe!</div>
                     `;
                 } else {
                     div.innerHTML = `<div class="error">❌ ${data.error}</div>`;
@@ -645,12 +761,10 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    currentToken = data.token;
-                    currentEmail = data.email;
-                    currentPassword = data.password;
+                    saveMailToLocalStorage(data.email, data.password, data.token);
                     
                     div.innerHTML = `
-                        <div class="success">✅ LOGIN SUCCESSFUL</div>
+                        <div class="success">✅ LOGIN SUCCESSFUL & AUTO SAVED</div>
                         <div class="mail-box">
                             📧 <strong>Email:</strong><br>
                             <code style="font-size:16px; word-break:break-all;">${data.email}</code><br>
@@ -661,7 +775,7 @@
                             <code style="font-size:16px;">${data.password}</code><br>
                             <button class="copy-btn" onclick="copyToClipboard('${data.password}')" style="margin-top:8px;">📋 COPY PASSWORD</button>
                         </div>
-                        <div class="success">📥 Auto OTP Active</div>
+                        <div class="success">📥 Auto OTP Active | Reload/Close - Data Safe!</div>
                     `;
                     
                     document.getElementById('loginEmail').value = '';
@@ -728,8 +842,29 @@
             } catch(e) { div.innerHTML = '<div class="error">Failed</div>'; }
         }
         
-        // ========== 2FA FUNCTIONS ==========
-        async function saveSecret() {
+        // ========== 2FA FUNCTIONS (With Local Storage) ==========
+        function loadSavedSecrets() {
+            const div = document.getElementById('savedSecretsList');
+            const secrets = getSecretsFromLocalStorage();
+            
+            if (secrets.length > 0) {
+                let html = '';
+                secrets.forEach(sec => {
+                    html += `
+                        <div class="secret-item">
+                            <code>${sec.name || sec.secret.substring(0, 15)}...</code>
+                            <button class="copy-btn" onclick="generateFromSaved('${sec.secret}')">🔢 GENERATE</button>
+                            <button class="copy-btn" onclick="deleteSecret('${sec.secret}')">🗑️</button>
+                        </div>
+                    `;
+                });
+                div.innerHTML = html;
+            } else {
+                div.innerHTML = '<div>No saved secrets</div>';
+            }
+        }
+        
+        function saveSecret() {
             const secret = document.getElementById('secretKey').value.trim();
             const name = document.getElementById('secretName').value.trim();
             
@@ -738,69 +873,23 @@
                 return;
             }
             
-            try {
-                const res = await fetch('/api/save_2fa_secret', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({secret: secret, name: name || 'Unnamed'})
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert('✅ Secret saved!');
-                    document.getElementById('secretKey').value = '';
-                    document.getElementById('secretName').value = '';
-                    loadSavedSecrets();
-                } else {
-                    alert('❌ Failed to save');
-                }
-            } catch(e) { alert('Error'); }
+            addSecretToLocalStorage(secret, name || 'Unnamed');
+            document.getElementById('secretKey').value = '';
+            document.getElementById('secretName').value = '';
+            loadSavedSecrets();
+            showToast('✅ Secret saved locally!');
         }
         
-        async function loadSavedSecrets() {
-            const div = document.getElementById('savedSecretsList');
-            div.innerHTML = '<div class="loading">Loading...</div>';
-            try {
-                const res = await fetch('/api/get_2fa_secrets');
-                const data = await res.json();
-                if (data.success && data.secrets.length > 0) {
-                    let html = '';
-                    data.secrets.forEach(sec => {
-                        html += `
-                            <div class="secret-item">
-                                <code>${sec.name || sec.secret.substring(0, 15)}...</code>
-                                <button class="copy-btn" onclick="generateFromSaved('${sec.secret}')">🔢 GENERATE</button>
-                                <button class="copy-btn" onclick="deleteSecret('${sec.secret}')">🗑️</button>
-                            </div>
-                        `;
-                    });
-                    div.innerHTML = html;
-                } else {
-                    div.innerHTML = '<div>No saved secrets</div>';
-                }
-            } catch(e) { div.innerHTML = '<div class="error">Failed to load</div>'; }
-        }
-        
-        async function generateFromSaved(secret) {
+        function generateFromSaved(secret) {
             document.getElementById('secretKey').value = secret;
             generate2FA();
         }
         
-        async function deleteSecret(secret) {
+        function deleteSecret(secret) {
             if (confirm('Delete this secret?')) {
-                try {
-                    const res = await fetch('/api/delete_2fa_secret', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({secret: secret})
-                    });
-                    const data = await res.json();
-                    if (data.success) {
-                        alert('✅ Deleted');
-                        loadSavedSecrets();
-                    } else {
-                        alert('Failed');
-                    }
-                } catch(e) { alert('Error'); }
+                removeSecretFromLocalStorage(secret);
+                loadSavedSecrets();
+                showToast('✅ Secret deleted');
             }
         }
         
@@ -808,7 +897,6 @@
             const secret = document.getElementById('secretKey').value.trim();
             if (!secret) { 
                 document.getElementById('tfaResult').innerHTML = '<div class="error">❌ Enter secret key</div>'; 
-                loadSavedSecrets();
                 return; 
             }
             const div = document.getElementById('tfaResult');
@@ -852,10 +940,106 @@
             } catch(e) {}
         }
         
+        // ========== SHORTLINK FUNCTIONS (With Local Storage) ==========
+        function loadMyLinks() {
+            const div = document.getElementById('myLinks');
+            const links = getShortlinksFromLocalStorage();
+            
+            if (links.length > 0) {
+                let html = '<strong>📂 YOUR SHORTLINKS (Auto Saved)</strong><br><br>';
+                links.forEach(link => {
+                    const shortUrl = `https://${window.location.host}/s/${link.short_code}`;
+                    html += `<div class="mail-item">
+                        🔗 <code>${link.short_code}</code><br>
+                        🔗 Original: <span style="font-size:12px;">${link.original_url.substring(0, 60)}...</span><br>
+                        👆 Clicks: ${link.clicks}<br>
+                        <button class="copy-btn" onclick="copyToClipboard('${shortUrl}')">📋 COPY</button>
+                        <button class="copy-btn" onclick="editLink('${link.short_code}', '${link.original_url.replace(/'/g, "\\'")}')">✏️ EDIT</button>
+                        <button class="copy-btn" onclick="deleteLink('${link.short_code}')">🗑️ DELETE</button>
+                    </div>`;
+                });
+                div.innerHTML = html;
+            } else {
+                div.innerHTML = '<div>No shortlinks yet. Create one!</div>';
+            }
+        }
+        
+        async function shortenUrl() {
+            const url = document.getElementById('longUrl').value.trim();
+            if (!url) { 
+                document.getElementById('shortResult').innerHTML = '<div class="error">❌ Enter URL</div>'; 
+                return; 
+            }
+            const div = document.getElementById('shortResult');
+            div.innerHTML = '<div class="loading">Shortening...</div>';
+            try {
+                const res = await fetch('/api/shorten_url', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: url})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    // Save to local storage
+                    addShortlinkToLocalStorage(data.code, url);
+                    
+                    const actionMsg = data.action === 'created' ? '✨ NEW SHORTLINK CREATED & SAVED' : '🔄 UPDATED';
+                    showOutput('shortResult', `
+                        <div class="success">✅ ${actionMsg}</div>
+                        🔗 <a href="${data.short_url}" target="_blank" style="color:#00d2ff; font-size:16px;">${data.short_url}</a><br>
+                        📋 Code: <code>${data.code}</code>
+                    `, data.short_url);
+                    document.getElementById('longUrl').value = '';
+                    loadMyLinks();
+                } else { 
+                    div.innerHTML = `<div class="error">❌ ${data.error}</div>`; 
+                }
+            } catch(e) { 
+                div.innerHTML = '<div class="error">Error</div>'; 
+            }
+        }
+        
+        function editLink(shortCode, currentUrl) {
+            const newUrl = prompt('Edit URL:', currentUrl);
+            if (newUrl && newUrl !== currentUrl) {
+                if (updateShortlinkInLocalStorage(shortCode, newUrl)) {
+                    showToast('✅ Link updated locally!');
+                    loadMyLinks();
+                    
+                    // Also update on server
+                    fetch('/api/update_link', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({short_code: shortCode, new_url: newUrl})
+                    }).catch(e => console.log(e));
+                } else {
+                    alert('Failed to update');
+                }
+            }
+        }
+        
+        function deleteLink(shortCode) {
+            if (confirm('Delete this shortlink?')) {
+                deleteShortlinkFromLocalStorage(shortCode);
+                showToast('✅ Link deleted!');
+                loadMyLinks();
+                
+                // Also delete from server
+                fetch('/api/delete_link', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({short_code: shortCode})
+                }).catch(e => console.log(e));
+            }
+        }
+        
         // ========== BIN FUNCTIONS ==========
         async function checkBIN() {
             const bin = document.getElementById('binNumber').value.trim();
-            if (bin.length < 6) { document.getElementById('binResult').innerHTML = '<div class="error">Enter 6 digits</div>'; return; }
+            if (bin.length < 6) { 
+                document.getElementById('binResult').innerHTML = '<div class="error">Enter 6 digits</div>'; 
+                return; 
+            }
             const div = document.getElementById('binResult');
             div.innerHTML = '<div class="loading">Checking...</div>';
             try {
@@ -876,8 +1060,12 @@
                         📌 <strong>Type:</strong> ${data.type}<br>
                         💰 <strong>Prepaid:</strong> ${data.prepaid ? 'YES' : 'NO'}
                     `, resultText);
-                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
-            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+                } else { 
+                    div.innerHTML = `<div class="error">❌ ${data.error}</div>`; 
+                }
+            } catch(e) { 
+                div.innerHTML = '<div class="error">Error</div>'; 
+            }
         }
         
         async function loadBinHistory() {
@@ -892,14 +1080,21 @@
                         html += `<div>🔍 <code>${h.bin}</code> - ${h.date}</div>`;
                     });
                     div.innerHTML = html;
-                } else { div.innerHTML = '<div>No history</div>'; }
-            } catch(e) { div.innerHTML = '<div class="error">Failed</div>'; }
+                } else { 
+                    div.innerHTML = '<div>No history</div>'; 
+                }
+            } catch(e) { 
+                div.innerHTML = '<div class="error">Failed</div>'; 
+            }
         }
         
         // ========== UID FUNCTIONS ==========
         async function extractUID() {
             const url = document.getElementById('fbUrl').value.trim();
-            if (!url) { document.getElementById('uidResult').innerHTML = '<div class="error">Enter URL</div>'; return; }
+            if (!url) { 
+                document.getElementById('uidResult').innerHTML = '<div class="error">Enter URL</div>'; 
+                return; 
+            }
             const div = document.getElementById('uidResult');
             div.innerHTML = '<div class="loading">Extracting...</div>';
             try {
@@ -916,95 +1111,21 @@
                         <strong>🆔 UID:</strong><br>
                         <code style="font-size:18px">${data.uid}</code>
                     `, data.uid);
-                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
-            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
-        }
-        
-        // ========== SHORTLINK FUNCTIONS ==========
-        async function shortenUrl() {
-            const url = document.getElementById('longUrl').value.trim();
-            if (!url) { document.getElementById('shortResult').innerHTML = '<div class="error">Enter URL</div>'; return; }
-            const div = document.getElementById('shortResult');
-            div.innerHTML = '<div class="loading">Shortening...</div>';
-            try {
-                const res = await fetch('/api/shorten_url', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({url: url})
-                });
-                const data = await res.json();
-                if (data.success) {
-                    const actionMsg = data.action === 'created' ? '✨ NEW SHORTLINK CREATED' : '🔄 UPDATED';
-                    showOutput('shortResult', `
-                        <div class="success">✅ ${actionMsg}</div>
-                        🔗 <a href="${data.short_url}" target="_blank" style="color:#00d2ff; font-size:16px;">${data.short_url}</a><br>
-                        📋 Code: <code>${data.code}</code>
-                    `, data.short_url);
-                    document.getElementById('longUrl').value = '';
-                    loadMyLinks();
-                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
-            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
-        }
-        
-        async function loadMyLinks() {
-            const div = document.getElementById('myLinks');
-            div.innerHTML = '<div class="loading">Loading...</div>';
-            try {
-                const res = await fetch('/api/get_my_links');
-                const data = await res.json();
-                if (data.success && data.links.length > 0) {
-                    let html = '<strong>📂 YOUR SHORTLINKS</strong><br><br>';
-                    data.links.forEach(link => {
-                        const shortUrl = `https://${window.location.host}/s/${link.short_code}`;
-                        html += `<div class="mail-item">
-                            🔗 <code>${link.short_code}</code><br>
-                            🔗 Original: <span style="font-size:12px;">${link.original_url.substring(0, 60)}...</span><br>
-                            👆 Clicks: ${link.clicks}<br>
-                            <button class="copy-btn" onclick="copyToClipboard('${shortUrl}')">📋 COPY</button>
-                            <button class="copy-btn" onclick="editLink('${link.short_code}', '${link.original_url.replace(/'/g, "\\'")}')">✏️ EDIT</button>
-                            <button class="copy-btn" onclick="deleteLink('${link.short_code}')">🗑️ DELETE</button>
-                        </div>`;
-                    });
-                    div.innerHTML = html;
-                } else { div.innerHTML = '<div>No shortlinks yet</div>'; }
-            } catch(e) { div.innerHTML = '<div class="error">Failed</div>'; }
-        }
-        
-        async function editLink(shortCode, currentUrl) {
-            const newUrl = prompt('Edit URL:', currentUrl);
-            if (newUrl && newUrl !== currentUrl) {
-                try {
-                    const res = await fetch('/api/update_link', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({short_code: shortCode, new_url: newUrl})
-                    });
-                    const data = await res.json();
-                    if (data.success) { alert('✅ Updated!'); loadMyLinks(); }
-                    else { alert('Failed'); }
-                } catch(e) { alert('Error'); }
-            }
-        }
-        
-        async function deleteLink(shortCode) {
-            if (confirm('Delete this shortlink?')) {
-                try {
-                    const res = await fetch('/api/delete_link', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({short_code: shortCode})
-                    });
-                    const data = await res.json();
-                    if (data.success) { alert('✅ Deleted!'); loadMyLinks(); }
-                    else { alert('Failed'); }
-                } catch(e) { alert('Error'); }
+                } else { 
+                    div.innerHTML = `<div class="error">❌ ${data.error}</div>`; 
+                }
+            } catch(e) { 
+                div.innerHTML = '<div class="error">Error</div>'; 
             }
         }
         
         // ========== QR FUNCTIONS ==========
         async function generateQR() {
             const text = document.getElementById('qrText').value.trim();
-            if (!text) { document.getElementById('qrResult').innerHTML = '<div class="error">Enter text</div>'; return; }
+            if (!text) { 
+                document.getElementById('qrResult').innerHTML = '<div class="error">Enter text</div>'; 
+                return; 
+            }
             const div = document.getElementById('qrResult');
             div.innerHTML = '<div class="loading">Generating...</div>';
             try {
@@ -1018,8 +1139,12 @@
                     div.innerHTML = `<div class="success">✅ QR CODE</div>
                         <div class="qr-image"><img src="data:image/png;base64,${data.qr_image}"></div>
                         <button class="copy-btn" onclick="copyToClipboard('${text}')">📋 COPY TEXT</button>`;
-                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
-            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+                } else { 
+                    div.innerHTML = `<div class="error">❌ ${data.error}</div>`; 
+                }
+            } catch(e) { 
+                div.innerHTML = '<div class="error">Error</div>'; 
+            }
         }
         
         // ========== PASSWORD GENERATOR ==========
@@ -1043,8 +1168,12 @@
                         <div class="success">✅ PASSWORD</div>
                         🔑 <code style="font-size:20px; word-break:break-all;">${data.password}</code>
                     `, data.password);
-                } else { div.innerHTML = '<div class="error">Error</div>'; }
-            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+                } else { 
+                    div.innerHTML = '<div class="error">Error</div>'; 
+                }
+            } catch(e) { 
+                div.innerHTML = '<div class="error">Error</div>'; 
+            }
         }
         
         // ========== TIMEZONE FUNCTIONS ==========
@@ -1066,14 +1195,21 @@
                         <div class="success">✅ CONVERTED</div>
                         🕐 ${time} ${fromTz} = <strong style="font-size:18px;">${data.converted_time}</strong> ${toTz}
                     `, `${time} ${fromTz} = ${data.converted_time} ${toTz}`);
-                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
-            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+                } else { 
+                    div.innerHTML = `<div class="error">❌ ${data.error}</div>`; 
+                }
+            } catch(e) { 
+                div.innerHTML = '<div class="error">Error</div>'; 
+            }
         }
         
         // ========== DICTIONARY FUNCTIONS ==========
         async function lookupWord() {
             const word = document.getElementById('dictWord').value.trim();
-            if (!word) { document.getElementById('dictResult').innerHTML = '<div class="error">Enter word</div>'; return; }
+            if (!word) { 
+                document.getElementById('dictResult').innerHTML = '<div class="error">Enter word</div>'; 
+                return; 
+            }
             const div = document.getElementById('dictResult');
             div.innerHTML = '<div class="loading">Searching...</div>';
             try {
@@ -1092,15 +1228,22 @@
                         html += `<br>`;
                     });
                     showOutput('dictResult', html, `${data.word}\n${data.meanings.map(m => m.definition).join('\n')}`);
-                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
-            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+                } else { 
+                    div.innerHTML = `<div class="error">❌ ${data.error}</div>`; 
+                }
+            } catch(e) { 
+                div.innerHTML = '<div class="error">Error</div>'; 
+            }
         }
         
         // ========== TEXT TRANSLATION ==========
         async function translateText() {
             const text = document.getElementById('translateText').value.trim();
             const target = document.getElementById('targetLang').value;
-            if (!text) { document.getElementById('transResult').innerHTML = '<div class="error">Enter text</div>'; return; }
+            if (!text) { 
+                document.getElementById('transResult').innerHTML = '<div class="error">Enter text</div>'; 
+                return; 
+            }
             const div = document.getElementById('transResult');
             div.innerHTML = '<div class="loading">Translating...</div>';
             try {
@@ -1116,11 +1259,15 @@
                         <strong>📝 Original:</strong><br><code style="font-size:15px;">${data.original}</code><br><br>
                         <strong>🌐 Translated (${data.target_lang}):</strong><br><code style="font-size:15px;">${data.translated}</code>
                     `, data.translated);
-                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
-            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+                } else { 
+                    div.innerHTML = `<div class="error">❌ ${data.error}</div>`; 
+                }
+            } catch(e) { 
+                div.innerHTML = '<div class="error">Error</div>'; 
+            }
         }
         
-        // ========== VOICE FUNCTIONS (FIXED) ==========
+        // ========== VOICE FUNCTIONS ==========
         async function startRecording() {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -1192,8 +1339,38 @@
             else document.querySelectorAll('.tab-btn')[1].classList.add('active');
         }
         
-        // ========== LOAD SAVED SECRETS ON PAGE LOAD ==========
-        loadSavedSecrets();
+        // ========== AUTO RESTORE ON PAGE LOAD ==========
+        function restoreSavedData() {
+            // Restore mail info display if exists
+            if (currentEmail && currentPassword) {
+                const div = document.getElementById('mailResult');
+                div.innerHTML = `
+                    <div class="success">✅ AUTO RESTORED FROM DEVICE</div>
+                    <div class="mail-box">
+                        📧 <strong>Email:</strong><br>
+                        <code style="font-size:16px; word-break:break-all;">${currentEmail}</code><br>
+                        <button class="copy-btn" onclick="copyToClipboard('${currentEmail}')" style="margin-top:8px;">📋 COPY EMAIL</button>
+                    </div>
+                    <div class="mail-box">
+                        🔑 <strong>Password:</strong><br>
+                        <code style="font-size:16px;">${currentPassword}</code><br>
+                        <button class="copy-btn" onclick="copyToClipboard('${currentPassword}')" style="margin-top:8px;">📋 COPY PASSWORD</button>
+                    </div>
+                    <div class="success">📥 Auto OTP Active | Data Auto Saved on this Device</div>
+                `;
+            }
+            
+            // Load saved secrets
+            loadSavedSecrets();
+            
+            // Load saved shortlinks
+            loadMyLinks();
+            
+            showToast('🔄 Data auto-restored from this device!');
+        }
+        
+        // Initialize on page load
+        restoreSavedData();
     </script>
 </body>
 </html>

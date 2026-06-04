@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>THIS PERSON IS BRAND WEB - All Features</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #16213e 100%);
+            font-family: 'Poppins', sans-serif;
+            color: #fff;
+            min-height: 100vh;
+        }
+        
+        .bg-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            overflow: hidden;
+        }
+        
+        .bg-animation::before {
+            content: '';
+            position: absolute;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(0,210,255,0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+        
+        @keyframes rotate {
+            0% { transform: translate(-25%, -25%) rotate(0deg); }
+            100% { transform: translate(-25%, -25%) rotate(360deg); }
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            animation: fadeInDown 1s ease;
+        }
+        
+        .logo {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, #00d2ff, #3a7bd5, #ff0066);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 30px rgba(0,210,255,0.3);
+            letter-spacing: 2px;
+        }
+        
+        .tagline {
+            color: #aaa;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .category {
+            margin: 30px 0 15px 0;
+            padding: 10px;
+            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(15px);
+            border-radius: 20px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s ease;
+            animation: fadeInUp 0.6s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(0,210,255,0.5);
+            box-shadow: 0 10px 30px rgba(0,210,255,0.15);
+        }
+        
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(0,210,255,0.3);
+        }
+        
+        .card-header h2 {
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        
+        .card-icon {
+            font-size: 1.8rem;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 12px;
+            margin: 8px 0;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 13px;
+            transition: all 0.3s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #00d2ff;
+            box-shadow: 0 0 10px rgba(0,210,255,0.3);
+        }
+        
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 8px;
+            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 13px;
+        }
+        
+        button:hover {
+            transform: scale(1.02);
+            box-shadow: 0 5px 15px rgba(0,210,255,0.3);
+        }
+        
+        button.secondary {
+            background: linear-gradient(90deg, #ff0066, #ff6600);
+        }
+        
+        .output {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(0,0,0,0.4);
+            border-radius: 10px;
+            font-size: 12px;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .success {
+            color: #00ff88;
+            font-weight: bold;
+        }
+        
+        .error {
+            color: #ff4444;
+            font-weight: bold;
+        }
+        
+        .otp-code {
+            background: rgba(0,255,136,0.2);
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 16px;
+            margin: 5px 0;
+            color: #00ff88;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 15px;
+        }
+        
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 2px solid #00d2ff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        code {
+            background: rgba(0,0,0,0.5);
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 11px;
+            word-break: break-all;
+        }
+        
+        .flex-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .flex-row input {
+            flex: 1;
+        }
+        
+        .flex-row button {
+            flex: 0.3;
+            margin: 0;
+        }
+        
+        .qr-image {
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        .qr-image img {
+            max-width: 150px;
+            border-radius: 10px;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            margin: 0;
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .tab-btn.active {
+            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .mail-item {
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding: 10px 0;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin: 10px 0;
+        }
+        
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            .logo {
+                font-size: 1.5rem;
+            }
+            .container {
+                padding: 12px;
+            }
+        }
+        
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #00d2ff;
+            border-radius: 10px;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding: 20px;
+            color: #666;
+            font-size: 12px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-animation"></div>
+    
+    <div class="container">
+        <div class="header">
+            <div class="logo">⚡ THIS PERSON IS BRAND WEB</div>
+            <div class="tagline">Temp Mail | Auto OTP | 2FA | UID | BIN | ShortLink | QR | Password | Timezone | Dictionary | Translate | Voice</div>
+        </div>
+        
+        <!-- Row 1: Core Features -->
+        <div class="category">📧 CORE FEATURES</div>
+        <div class="grid">
+            <!-- Temp Mail Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">📧</span>
+                    <h2>Temp Mail</h2>
+                </div>
+                <button onclick="createMail()">✨ CREATE NEW MAIL</button>
+                <div id="mailResult" class="output"></div>
+                <button onclick="checkInbox()" style="margin-top: 10px;">📥 CHECK INBOX</button>
+                <div id="inboxResult" class="output"></div>
+                <button onclick="loadSavedMails()" class="secondary">💾 SAVED MAILS</button>
+                <div id="savedMails" class="output"></div>
+            </div>
+            
+            <!-- 2FA Generator Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">🔐</span>
+                    <h2>2FA Generator</h2>
+                </div>
+                <input type="text" id="secretKey" placeholder="Enter secret key (spaces allowed)" autocomplete="off">
+                <button onclick="generate2FA()">🔢 GENERATE CODE</button>
+                <div id="tfaResult" class="output"></div>
+            </div>
+            
+            <!-- BIN Check Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">💳</span>
+                    <h2>BIN Checker</h2>
+                </div>
+                <input type="text" id="binNumber" placeholder="Enter first 6 digits of BIN" maxlength="6" autocomplete="off">
+                <button onclick="checkBIN()">🔍 CHECK BIN</button>
+                <div id="binResult" class="output"></div>
+                <button onclick="loadBinHistory()" class="secondary" style="margin-top:5px;">📜 BIN HISTORY</button>
+                <div id="binHistory" class="output"></div>
+            </div>
+            
+            <!-- UID Extractor Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">🆔</span>
+                    <h2>Facebook UID</h2>
+                </div>
+                <input type="text" id="fbUrl" placeholder="Facebook profile URL" autocomplete="off">
+                <button onclick="extractUID()">🔍 EXTRACT UID</button>
+                <div id="uidResult" class="output"></div>
+            </div>
+        </div>
+        
+        <!-- Row 2: Utility Features -->
+        <div class="category">🛠️ UTILITY FEATURES</div>
+        <div class="grid">
+            <!-- Shortlink Manager Card -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">🔗</span>
+                    <h2>Shortlink Manager</h2>
+                </div>
+                <div class="flex-row">
+                    <input type="text" id="longUrl" placeholder="Enter long URL to shorten" autocomplete="off" style="flex:1">
+                    <button onclick="shortenUrl()" style="width:auto; padding:10px 18px; margin:0;">⚡ SHORTEN</button>
+                </div>
+                <div id="shortlinkResult" class="output"></div>
+                <button onclick="loadMyLinks()" style="margin-top:12px;" class="secondary">📋 MY SAVED SHORTLINKS</button>
+                <div id="myLinksList" class="output" style="max-height: 280px; overflow-y: auto;"></div>
+            </div>
+            
+            <!-- QR Code Generator -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">📱</span>
+                    <h2>QR Code Generator</h2>
+                </div>
+                <input type="text" id="qrText" placeholder="Enter text or URL for QR code" autocomplete="off">
+                <button onclick="generateQR()">📱 GENERATE QR CODE</button>
+                <div id="qrResult" class="output"></div>
+            </div>
+            
+            <!-- Random Password Generator -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">🔑</span>
+                    <h2>Random Password</h2>
+                </div>
+                <div class="flex-row">
+                    <input type="number" id="pwdLength" value="12" min="4" max="32" style="width:80px">
+                    <span>length</span>
+                </div>
+                <div class="checkbox-group">
+                    <label><input type="checkbox" id="useUpper" checked> A-Z</label>
+                    <label><input type="checkbox" id="useLower" checked> a-z</label>
+                    <label><input type="checkbox" id="useDigits" checked> 0-9</label>
+                    <label><input type="checkbox" id="useSymbols" checked> !@#$</label>
+                </div>
+                <button onclick="generatePassword()">🔐 GENERATE PASSWORD</button>
+                <div id="passwordResult" class="output"></div>
+            </div>
+            
+            <!-- Timezone Converter -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">🌍</span>
+                    <h2>Timezone Converter</h2>
+                </div>
+                <input type="time" id="inputTime" value="12:00">
+                <select id="fromTz">
+                    <option value="UTC">UTC</option><option value="GMT">GMT</option>
+                    <option value="IST">IST (India)</option><option value="PKT">PKT (Pakistan)</option>
+                    <option value="BDT" selected>BDT (Bangladesh)</option><option value="CST">CST (China)</option>
+                    <option value="EST">EST (USA)</option><option value="PST">PST (USA)</option>
+                    <option value="JST">JST (Japan)</option><option value="AEST">AEST (Australia)</option>
+                </select>
+                <select id="toTz">
+                    <option value="UTC">UTC</option><option value="GMT">GMT</option>
+                    <option value="IST">IST (India)</option><option value="PKT">PKT (Pakistan)</option>
+                    <option value="BDT" selected>BDT (Bangladesh)</option><option value="CST">CST (China)</option>
+                    <option value="EST">EST (USA)</option><option value="PST">PST (USA)</option>
+                </select>
+                <button onclick="convertTimezone()">🔄 CONVERT TIME</button>
+                <div id="timezoneResult" class="output"></div>
+            </div>
+        </div>
+        
+        <!-- Row 3: Dictionary & Translation -->
+        <div class="category">📖 DICTIONARY & TRANSLATION</div>
+        <div class="grid">
+            <!-- Dictionary -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">📖</span>
+                    <h2>Dictionary</h2>
+                </div>
+                <input type="text" id="dictWord" placeholder="Enter English word" autocomplete="off">
+                <button onclick="lookupWord()">🔍 SEARCH</button>
+                <div id="dictResult" class="output"></div>
+            </div>
+            
+            <!-- Translation -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-icon">🌐</span>
+                    <h2>Translation</h2>
+                </div>
+                <div class="tab-buttons">
+                    <button class="tab-btn active" onclick="switchTab('text')">📝 TEXT</button>
+                    <button class="tab-btn" onclick="switchTab('voice')">🎤 VOICE</button>
+                </div>
+                <div id="textTab" class="tab-content active">
+                    <textarea id="translateText" rows="3" placeholder="Enter text to translate..."></textarea>
+                    <select id="targetLang">
+                        <option value="bn">বাংলা (Bengali)</option><option value="en">English</option>
+                        <option value="hi">हिन्दी (Hindi)</option><option value="es">Español</option>
+                        <option value="fr">Français</option><option value="de">Deutsch</option>
+                        <option value="zh-cn">中文</option><option value="ja">日本語</option>
+                        <option value="ko">한국어</option><option value="ar">العربية</option>
+                    </select>
+                    <button onclick="translateText()">🔄 TRANSLATE</button>
+                </div>
+                <div id="voiceTab" class="tab-content">
+                    <p style="margin-bottom:10px; font-size:12px;">🎤 Click below and speak (English or Bengali)</p>
+                    <button id="recordBtn" onclick="startRecording()">🎙️ START RECORDING</button>
+                    <button onclick="stopRecording()" style="margin-top:5px">⏹️ STOP & TRANSLATE</button>
+                    <div id="voiceStatus" class="output" style="margin-top:10px"></div>
+                </div>
+                <div id="translationResult" class="output"></div>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p>⚡ THIS PERSON IS BRAND - Complete Web Solution | All Features Active | Shortlinks Auto Save with Edit/Delete</p>
+        </div>
+    </div>
+    
+    <script>
+        let currentToken = null;
+        let current2FASecret = null;
+        let mediaRecorderInstance = null;
+        let audioChunksList = [];
+        
+        // ========== CORE FEATURES ==========
+        async function createMail() {
+            const div = document.getElementById('mailResult');
+            div.innerHTML = '<div class="loading">Creating mail...</div>';
+            try {
+                const res = await fetch('/api/create_mail');
+                const data = await res.json();
+                if (data.success) {
+                    currentToken = data.token;
+                    div.innerHTML = `<div class="success">✅ MAIL CREATED</div>
+                        <strong>📧 Email:</strong><br><code>${data.email}</code><br><br>
+                        <strong>🔑 Password:</strong><br><code>${data.password}</code><br><br>
+                        <strong>📥 Auto OTP Active</strong>`;
+                } else {
+                    div.innerHTML = `<div class="error">❌ ${data.error}</div>`;
+                }
+            } catch(e) { div.innerHTML = '<div class="error">❌ Network error</div>'; }
+        }
+        
+        async function checkInbox() {
+            if (!currentToken) {
+                document.getElementById('inboxResult').innerHTML = '<div class="error">❌ Create a mail first!</div>';
+                return;
+            }
+            const div = document.getElementById('inboxResult');
+            div.innerHTML = '<div class="loading">Fetching inbox...</div>';
+            try {
+                const res = await fetch('/api/check_inbox', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({token: currentToken})
+                });
+                const data = await res.json();
+                if (data.success && data.messages.length > 0) {
+                    let html = '<strong>📩 INBOX MESSAGES</strong><br><br>';
+                    data.messages.forEach(msg => {
+                        html += `<div class="mail-item"><strong>📨 From:</strong> ${msg.from}<br>
+                            <strong>📝 Subject:</strong> ${msg.subject}<br>
+                            <strong>🔑 OTP:</strong> <span class="otp-code">${msg.otp}</span><br>
+                            <strong>📄 Message:</strong><br><code>${msg.body.substring(0,300)}</code><hr></div>`;
+                    });
+                    div.innerHTML = html;
+                } else { div.innerHTML = '<div>📭 No messages</div>'; }
+            } catch(e) { div.innerHTML = '<div class="error">❌ Error</div>'; }
+        }
+        
+        async function loadSavedMails() {
+            const div = document.getElementById('savedMails');
+            div.innerHTML = '<div class="loading">Loading...</div>';
+            try {
+                const res = await fetch('/api/get_saved_mails');
+                const data = await res.json();
+                if (data.success && data.mails.length > 0) {
+                    let html = '<strong>📂 RECENT MAILS</strong><br><br>';
+                    data.mails.forEach(m => { html += `📧 <code>${m.email}</code><br>🔑 <code>${m.password}</code><br>📅 ${m.created}<br><hr>`; });
+                    div.innerHTML = html;
+                } else { div.innerHTML = '<div>No saved mails</div>'; }
+            } catch(e) { div.innerHTML = '<div class="error">Failed</div>'; }
+        }
+        
+        async function generate2FA() {
+            const secret = document.getElementById('secretKey').value.trim();
+            if (!secret) { document.getElementById('tfaResult').innerHTML = '<div class="error">❌ Enter secret key</div>'; return; }
+            const div = document.getElementById('tfaResult');
+            div.innerHTML = '<div class="loading">Generating...</div>';
+            try {
+                const res = await fetch('/api/generate_2fa', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({secret: secret})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    current2FASecret = data.secret;
+                    div.innerHTML = `<div class="success">✅ 2FA CODE GENERATED</div>
+                        <strong>🔢 Code:</strong> <span class="otp-code" style="font-size:28px">${data.code}</span><br>
+                        <strong>⏳ Expires:</strong> ${data.expires} seconds<br><br>
+                        <button onclick="refresh2FA()" class="secondary">🔄 REFRESH CODE</button>`;
+                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
+            } catch(e) { div.innerHTML = '<div class="error">Invalid secret</div>'; }
+        }
+        
+        async function refresh2FA() {
+            if (!current2FASecret) { return; }
+            try {
+                const res = await fetch('/api/generate_2fa', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({secret: current2FASecret})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('tfaResult').innerHTML = `<div class="success">✅ REFRESHED</div>
+                        <strong>🔢 New Code:</strong> <span class="otp-code" style="font-size:28px">${data.code}</span><br>
+                        <strong>⏳ Expires:</strong> ${data.expires} seconds<br><br>
+                        <button onclick="refresh2FA()" class="secondary">🔄 REFRESH CODE</button>`;
+                }
+            } catch(e) {}
+        }
+        
+        async function checkBIN() {
+            const bin = document.getElementById('binNumber').value.trim();
+            if (bin.length < 6) { document.getElementById('binResult').innerHTML = '<div class="error">❌ Enter 6 digits</div>'; return; }
+            const div = document.getElementById('binResult');
+            div.innerHTML = '<div class="loading">Checking...</div>';
+            try {
+                const res = await fetch('/api/check_bin', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({bin: bin})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    div.innerHTML = `<div class="success">✅ BIN RESULT</div>
+                        💳 BIN: <code>${data.bin}</code><br>
+                        🏦 Bank: ${data.bank}<br>
+                        🌍 Country: ${data.country} ${data.country_emoji}<br>
+                        💠 Scheme: ${data.scheme}<br>
+                        📌 Type: ${data.type}<br>
+                        💰 Prepaid: ${data.prepaid ? 'YES' : 'NO'}`;
+                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
+            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+        }
+        
+        async function loadBinHistory() {
+            const div = document.getElementById('binHistory');
+            div.innerHTML = '<div class="loading">Loading...</div>';
+            try {
+                const res = await fetch('/api/bin_history');
+                const data = await res.json();
+                if (data.success && data.history.length > 0) {
+                    let html = '<strong>📜 BIN HISTORY</strong><br><br>';
+                    data.history.forEach(h => { html += `🔍 <code>${h.bin}</code> - ${h.date}<br>`; });
+                    div.innerHTML = html;
+                } else { div.innerHTML = '<div>No history</div>'; }
+            } catch(e) { div.innerHTML = '<div class="error">Failed</div>'; }
+        }
+        
+        async function extractUID() {
+            const url = document.getElementById('fbUrl').value.trim();
+            if (!url) { document.getElementById('uidResult').innerHTML = '<div class="error">❌ Enter URL</div>'; return; }
+            const div = document.getElementById('uidResult');
+            div.innerHTML = '<div class="loading">Extracting...</div>';
+            try {
+                const res = await fetch('/api/extract_uid', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: url})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    div.innerHTML = `<div class="success">✅ PROFILE FOUND</div>
+                        <strong>👤 Name:</strong> ${data.name}<br>
+                        <strong>🆔 UID:</strong><br><code style="font-size:16px">${data.uid}</code>`;
+                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
+            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+        }
+        
+        // ========== SHORTLINK FUNCTIONS ==========
+        async function shortenUrl() {
+            const url = document.getElementById('longUrl').value.trim();
+            if (!url) {
+                document.getElementById('shortlinkResult').innerHTML = '<div class="error">❌ Enter URL</div>';
+                return;
+            }
+            const div = document.getElementById('shortlinkResult');
+            div.innerHTML = '<div class="loading">Processing...</div>';
+            try {
+                const res = await fetch('/api/shorten_url', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({url: url})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const actionMsg = data.action === 'created' ? '✨ NEW SHORTLINK CREATED' : '🔄 EXISTING SHORTLINK UPDATED';
+                    div.innerHTML = `
+                        <div class="success">✅ ${actionMsg}</div>
+                        🔗 <a href="${data.short_url}" target="_blank" style="color:#00d2ff">${data.short_url}</a><br>
+                        📋 Code: <code>${data.code}</code><br>
+                        <button onclick="copyToClipboard('${data.short_url}')" class="secondary" style="margin-top:8px">📋 COPY LINK</button>
+                    `;
+                    document.getElementById('longUrl').value = '';
+                    loadMyLinks();
+                } else {
+                    div.innerHTML = `<div class="error">❌ ${data.error}</div>`;
+                }
+            } catch(e) {
+                div.innerHTML = '<div class="error">❌ Network error</div>';
+            }
+        }
+        
+        async function loadMyLinks() {
+            const div = document.getElementById('myLinksList');
+            div.innerHTML = '<div class="loading">Loading your links...</div>';
+            try {
+                const res = await fetch('/api/get_my_links');
+                const data = await res.json();
+                if (data.success && data.links.length > 0) {
+                    let html = '<strong>📂 YOUR SAVED SHORTLINKS</strong><br><br>';
+                    data.links.forEach(link => {
+                        const shortUrl = `https://${window.location.host}/s/${link.short_code}`;
+                        html += `
+                            <div class="mail-item" style="margin-bottom:12px; padding:10px; background:rgba(0,0,0,0.3); border-radius:10px;">
+                                <strong>🔗 Code:</strong> <code>${link.short_code}</code><br>
+                                <strong>🔗 Original:</strong> <span style="font-size:11px; word-break:break-all;">${link.original_url.substring(0, 50)}${link.original_url.length > 50 ? '...' : ''}</span><br>
+                                <strong>👆 Clicks:</strong> ${link.clicks}<br>
+                                <strong>📅 Created:</strong> ${new Date(link.created_at).toLocaleString()}<br>
+                                <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+                                    <button onclick="editLink('${link.short_code}', '${link.original_url.replace(/'/g, "\\'")}')" style="background:#ff6600; margin:0; padding:6px 12px;">✏️ EDIT</button>
+                                    <button onclick="deleteLink('${link.short_code}')" style="background:#ff0066; margin:0; padding:6px 12px;">🗑️ DELETE</button>
+                                    <button onclick="copyToClipboard('${shortUrl}')" style="background:#00d2ff; margin:0; padding:6px 12px;">📋 COPY</button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                    div.innerHTML = html;
+                } else {
+                    div.innerHTML = '<div>📭 No shortlinks yet. Create your first one!</div>';
+                }
+            } catch(e) {
+                div.innerHTML = '<div class="error">❌ Failed to load links</div>';
+            }
+        }
+        
+        async function editLink(shortCode, currentUrl) {
+            const newUrl = prompt('✏️ Edit URL:\n\nCurrent: ' + currentUrl + '\n\nEnter new URL:', currentUrl);
+            if (newUrl && newUrl !== currentUrl) {
+                try {
+                    const res = await fetch('/api/update_link', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({short_code: shortCode, new_url: newUrl})
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert('✅ Link updated successfully!');
+                        loadMyLinks();
+                    } else {
+                        alert('❌ Failed to update');
+                    }
+                } catch(e) {
+                    alert('❌ Network error');
+                }
+            }
+        }
+        
+        async function deleteLink(shortCode) {
+            if (confirm('⚠️ Are you sure you want to delete this shortlink?\n\nThis action cannot be undone!')) {
+                try {
+                    const res = await fetch('/api/delete_link', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({short_code: shortCode})
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        alert('✅ Link deleted successfully!');
+                        loadMyLinks();
+                    } else {
+                        alert('❌ Failed to delete');
+                    }
+                } catch(e) {
+                    alert('❌ Network error');
+                }
+            }
+        }
+        
+        // ========== QR CODE ==========
+        async function generateQR() {
+            const text = document.getElementById('qrText').value.trim();
+            if (!text) { document.getElementById('qrResult').innerHTML = '<div class="error">❌ Enter text/URL</div>'; return; }
+            const div = document.getElementById('qrResult');
+            div.innerHTML = '<div class="loading">Generating QR...</div>';
+            try {
+                const res = await fetch('/api/generate_qr', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text: text})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    div.innerHTML = `<div class="success">✅ QR CODE GENERATED</div>
+                        <div class="qr-image"><img src="data:image/png;base64,${data.qr_image}"></div>`;
+                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
+            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+        }
+        
+        // ========== PASSWORD GENERATOR ==========
+        async function generatePassword() {
+            const length = document.getElementById('pwdLength').value;
+            const useUpper = document.getElementById('useUpper').checked;
+            const useLower = document.getElementById('useLower').checked;
+            const useDigits = document.getElementById('useDigits').checked;
+            const useSymbols = document.getElementById('useSymbols').checked;
+            const div = document.getElementById('passwordResult');
+            div.innerHTML = '<div class="loading">Generating...</div>';
+            try {
+                const res = await fetch('/api/generate_password', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({length: parseInt(length), use_upper: useUpper, use_lower: useLower, use_digits: useDigits, use_symbols: useSymbols})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    div.innerHTML = `<div class="success">✅ PASSWORD GENERATED</div>
+                        🔑 <code style="font-size:16px">${data.password}</code><br>
+                        📏 Length: ${data.length} characters<br>
+                        <button onclick="copyToClipboard('${data.password}')" class="secondary">📋 COPY</button>`;
+                } else { div.innerHTML = `<div class="error">❌ Error</div>`; }
+            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+        }
+        
+        // ========== TIMEZONE ==========
+        async function convertTimezone() {
+            const time = document.getElementById('inputTime').value;
+            const fromTz = document.getElementById('fromTz').value;
+            const toTz = document.getElementById('toTz').value;
+            const div = document.getElementById('timezoneResult');
+            div.innerHTML = '<div class="loading">Converting...</div>';
+            try {
+                const res = await fetch('/api/convert_timezone', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({time: time, from_tz: fromTz, to_tz: toTz})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    div.innerHTML = `<div class="success">✅ TIME CONVERTED</div>
+                        🕐 ${time} ${fromTz} = <strong>${data.converted_time}</strong> ${toTz}`;
+                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
+            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+        }
+        
+        // ========== DICTIONARY ==========
+        async function lookupWord() {
+            const word = document.getElementById('dictWord').value.trim();
+            if (!word) { document.getElementById('dictResult').innerHTML = '<div class="error">❌ Enter a word</div>'; return; }
+            const div = document.getElementById('dictResult');
+            div.innerHTML = '<div class="loading">Searching...</div>';
+            try {
+                const res = await fetch('/api/dictionary', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({word: word})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    let html = `<div class="success">✅ ${data.word}</div>`;
+                    if (data.phonetic) html += `<strong>🔊 Pronunciation:</strong> ${data.phonetic}<br><br>`;
+                    data.meanings.forEach(m => {
+                        html += `<strong>📌 ${m.part}</strong><br>📖 ${m.definition}<br>`;
+                        if (m.example) html += `💡 Example: "${m.example}"<br>`;
+                        html += `<br>`;
+                    });
+                    div.innerHTML = html;
+                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
+            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+        }
+        
+        // ========== TRANSLATION ==========
+        async function translateText() {
+            const text = document.getElementById('translateText').value.trim();
+            const target = document.getElementById('targetLang').value;
+            if (!text) { document.getElementById('translationResult').innerHTML = '<div class="error">❌ Enter text</div>'; return; }
+            const div = document.getElementById('translationResult');
+            div.innerHTML = '<div class="loading">Translating...</div>';
+            try {
+                const res = await fetch('/api/translate', {
+                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({text: text, target: target})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    div.innerHTML = `<div class="success">✅ TRANSLATION</div>
+                        <strong>📝 Original:</strong><br><code>${data.original}</code><br><br>
+                        <strong>🌐 Translated (${data.target_lang}):</strong><br><code>${data.translated}</code>`;
+                } else { div.innerHTML = `<div class="error">❌ ${data.error}</div>`; }
+            } catch(e) { div.innerHTML = '<div class="error">Error</div>'; }
+        }
+        
+        // ========== VOICE RECORDING ==========
+        async function startRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorderInstance = new MediaRecorder(stream);
+                audioChunksList = [];
+                mediaRecorderInstance.ondataavailable = event => { audioChunksList.push(event.data); };
+                mediaRecorderInstance.start();
+                document.getElementById('voiceStatus').innerHTML = '<div class="success">🎙️ Recording... Speak now!</div>';
+                document.getElementById('recordBtn').textContent = '🔴 RECORDING...';
+                document.getElementById('recordBtn').disabled = true;
+            } catch(e) {
+                document.getElementById('voiceStatus').innerHTML = '<div class="error">❌ Microphone access denied</div>';
+            }
+        }
+        
+        function stopRecording() {
+            if (mediaRecorderInstance && mediaRecorderInstance.state === 'recording') {
+                mediaRecorderInstance.stop();
+                mediaRecorderInstance.onstop = async () => {
+                    document.getElementById('voiceStatus').innerHTML = '<div class="loading">Processing voice...</div>';
+                    const audioBlob = new Blob(audioChunksList, { type: 'audio/webm' });
+                    const formData = new FormData();
+                    formData.append('audio', audioBlob, 'recording.webm');
+                    try {
+                        const res = await fetch('/api/voice_to_text', { method: 'POST', body: formData });
+                        const data = await res.json();
+                        if (data.success) {
+                            document.getElementById('translateText').value = data.text;
+                            document.getElementById('targetLang').value = 'bn';
+                            translateText();
+                            document.getElementById('voiceStatus').innerHTML = `<div class="success">✅ Recognized: "${data.text}"</div>`;
+                        } else {
+                            document.getElementById('voiceStatus').innerHTML = `<div class="error">❌ ${data.error}</div>`;
+                        }
+                    } catch(e) {
+                        document.getElementById('voiceStatus').innerHTML = '<div class="error">❌ Recognition failed</div>';
+                    }
+                    document.getElementById('recordBtn').textContent = '🎙️ START RECORDING';
+                    document.getElementById('recordBtn').disabled = false;
+                    mediaRecorderInstance.stream.getTracks().forEach(track => track.stop());
+                };
+            }
+        }
+        
+        // ========== UTILITIES ==========
+        function switchTab(tab) {
+            document.getElementById('textTab').classList.toggle('active', tab === 'text');
+            document.getElementById('voiceTab').classList.toggle('active', tab === 'voice');
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            if (tab === 'text') event.target.classList.add('active');
+            else document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        }
+        
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text);
+            alert('📋 Copied to clipboard!');
+        }
+    </script>
+</body>
+</html>
